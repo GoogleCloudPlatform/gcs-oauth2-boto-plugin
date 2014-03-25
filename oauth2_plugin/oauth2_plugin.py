@@ -13,11 +13,14 @@
 # limitations under the License.
 
 """Boto auth plugin for OAuth2.0 for Google Cloud Storage."""
+
+from __future__ import absolute_import
+
 from boto.auth_handler import AuthHandler
-from boto.auth_handler import NotReadyToAuthenticate 
-import oauth2_client
-import oauth2_helper
-from gslib.cred_types import CredTypes
+from boto.auth_handler import NotReadyToAuthenticate
+
+from oauth2_plugin import oauth2_client
+from oauth2_plugin import oauth2_helper
 
 IS_SERVICE_ACCOUNT = False
 
@@ -39,16 +42,16 @@ class OAuth2Auth(AuthHandler):
 
 
 class OAuth2ServiceAccountAuth(AuthHandler):
-  
+
   capability = ['google-oauth2', 's3']
 
   def __init__(self, path, config, provider):
-    if (provider.name == 'google' 
-        and config.has_option('Credentials', 'gs_service_client_id') 
+    if (provider.name == 'google'
+        and config.has_option('Credentials', 'gs_service_client_id')
         and config.has_option('Credentials', 'gs_service_key_file')):
-      self.oauth2_client = oauth2_helper.OAuth2ClientFromBotoConfig(config, 
-          cred_type=CredTypes.OAUTH2_SERVICE_ACCOUNT)
-      
+      self.oauth2_client = oauth2_helper.OAuth2ClientFromBotoConfig(config,
+          cred_type=oauth2_client.CredTypes.OAUTH2_SERVICE_ACCOUNT)
+
       # If we make it to this point, then we will later attempt to authenticate
       # as a service account based on how the boto auth plugins work. This is
       # global so that command.py can access this value once it's set.
@@ -58,8 +61,8 @@ class OAuth2ServiceAccountAuth(AuthHandler):
       IS_SERVICE_ACCOUNT = True
     else:
       raise NotReadyToAuthenticate()
- 
+
   def add_auth(self, http_request):
     http_request.headers['Authorization'] = \
         self.oauth2_client.GetAuthorizationHeader()
-         
+

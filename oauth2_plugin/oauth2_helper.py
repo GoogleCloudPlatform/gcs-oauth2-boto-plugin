@@ -14,15 +14,15 @@
 
 """Helper routines to facilitate use of oauth2_client in gsutil."""
 
-import boto
+from __future__ import absolute_import
+
 import sys
 import time
 import webbrowser
 
-from gslib.cred_types import CredTypes
-import oauth2_client
 from oauth2client.client import OAuth2WebServerFlow
-from oauth2client.file import Storage
+
+from oauth2_plugin import oauth2_client
 
 GSUTIL_CLIENT_ID = '909320924072.apps.googleusercontent.com'
 # Google OAuth2 clients always have a secret, even if the client is an installed
@@ -31,7 +31,6 @@ GSUTIL_CLIENT_ID = '909320924072.apps.googleusercontent.com'
 # tokens, which effectively become bearer tokens.
 GSUTIL_CLIENT_NOTSOSECRET = 'p3RlpR10xMFh9ZXBS/ZNLYUu'
 
-GOOGLE_OAUTH2_PROVIDER_LABEL = 'Google'
 GOOGLE_OAUTH2_PROVIDER_AUTHORIZATION_URI = (
     'https://accounts.google.com/o/oauth2/auth')
 GOOGLE_OAUTH2_PROVIDER_TOKEN_URI = (
@@ -40,8 +39,8 @@ GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD = 'notasecret'
 
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
-def OAuth2ClientFromBotoConfig(config, 
-    cred_type=CredTypes.OAUTH2_USER_ACCOUNT):
+def OAuth2ClientFromBotoConfig(config,
+    cred_type=oauth2_client.CredTypes.OAUTH2_USER_ACCOUNT):
   token_cache = None
   token_cache_type = config.get('OAuth2', 'token_cache', 'file_system')
   if token_cache_type == 'file_system':
@@ -63,31 +62,29 @@ def OAuth2ClientFromBotoConfig(config,
       and config.has_option('Boto', 'proxy_port')):
     proxy_host = config.get('Boto', 'proxy')
     proxy_port = int(config.get('Boto', 'proxy_port'))
-  
-  provider_label = config.get(  
-      'OAuth2', 'provider_label', GOOGLE_OAUTH2_PROVIDER_LABEL)  
-  provider_authorization_uri = config.get(  
-      'OAuth2', 'provider_authorization_uri',  
+
+  provider_authorization_uri = config.get(
+      'OAuth2', 'provider_authorization_uri',
       GOOGLE_OAUTH2_PROVIDER_AUTHORIZATION_URI)
   provider_token_uri = config.get(
       'OAuth2', 'provider_token_uri', GOOGLE_OAUTH2_PROVIDER_TOKEN_URI)
 
-  if cred_type == CredTypes.OAUTH2_SERVICE_ACCOUNT:
+  if cred_type == oauth2_client.CredTypes.OAUTH2_SERVICE_ACCOUNT:
     service_client_id = config.get('Credentials', 'gs_service_client_id', '')
     private_key_filename = config.get('Credentials', 'gs_service_key_file', '')
     key_file_pass = config.get('Credentials', 'gs_service_key_file_password',
                                GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD)
     with open(private_key_filename, 'rb') as private_key_file:
       private_key = private_key_file.read()
-    
-    return oauth2_client.OAuth2ServiceAccountClient(service_client_id, 
+
+    return oauth2_client.OAuth2ServiceAccountClient(service_client_id,
         private_key, key_file_pass, access_token_cache=token_cache,
         auth_uri=provider_authorization_uri, token_uri=provider_token_uri,
         disable_ssl_certificate_validation=not(config.getbool(
             'Boto', 'https_validate_certificates', True)),
         proxy_host=proxy_host, proxy_port=proxy_port)
 
-  elif cred_type == CredTypes.OAUTH2_USER_ACCOUNT:
+  elif cred_type == oauth2_client.CredTypes.OAUTH2_USER_ACCOUNT:
     client_id = config.get('OAuth2', 'client_id', GSUTIL_CLIENT_ID)
     client_secret = config.get(
         'OAuth2', 'client_secret', GSUTIL_CLIENT_NOTSOSECRET)
@@ -107,11 +104,10 @@ def OAuth2ClientFromBotoConfig(config,
         'information.')
 
 
-def OAuth2ApprovalFlow(oauth2_client, scopes, launch_browser=False):
+def OAuth2ApprovalFlow(client, scopes, launch_browser=False):
   flow = OAuth2WebServerFlow(
-      oauth2_client.client_id, oauth2_client.client_secret, scopes,
-      auth_uri=oauth2_client.auth_uri, token_uri=oauth2_client.token_uri,
-      redirect_uri=OOB_REDIRECT_URI)
+      client.client_id, client.client_secret, scopes, auth_uri=client.auth_uri,
+      token_uri=client.token_uri, redirect_uri=OOB_REDIRECT_URI)
   approval_url = flow.step1_get_authorize_url()
 
   if launch_browser:
@@ -139,6 +135,5 @@ def OAuth2ApprovalFlow(oauth2_client, scopes, launch_browser=False):
   # which we don't want to run into the prompt for the auth code.
   time.sleep(2)
   code = raw_input('Enter the authorization code: ')
-  credentials = flow.step2_exchange(code,
-                                    http=oauth2_client.CreateHttpRequest())
+  credentials = flow.step2_exchange(code, http=client.CreateHttpRequest())
   return credentials.refresh_token

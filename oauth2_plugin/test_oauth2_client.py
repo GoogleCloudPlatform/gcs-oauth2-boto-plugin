@@ -13,13 +13,17 @@
 # limitations under the License.
 
 """Unit tests for oauth2_client and related classes."""
+
+from __future__ import absolute_import
+
 import datetime
 import logging
-import oauth2_client
 import os
 import stat
 import sys
 import unittest
+
+from oauth2_plugin import oauth2_client
 
 LOG = logging.getLogger('test_oauth2_client')
 
@@ -300,4 +304,4 @@ class RefreshTokenTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+  unittest.main()

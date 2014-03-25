@@ -28,8 +28,19 @@ notice.
 # tokens (in the python API client oauth2client, there is a single class that
 # encapsulates both refresh and access tokens).
 
+from __future__ import absolute_import
+
+import cgi
+import datetime
+import errno
+from hashlib import sha1
+import logging
+import multiprocessing
 import os
 import sys
+import tempfile
+import threading
+import urllib
 
 # List of third-party libraries that we'll insert into sys.path.
 THIRD_PARTY_LIBS = [
@@ -38,41 +49,20 @@ THIRD_PARTY_LIBS = [
     'google-api-python-client',
     'boto',
 ]
-for dir in THIRD_PARTY_LIBS:
+for libdir in THIRD_PARTY_LIBS:
   sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) +
-      '/../third_party/%s' % dir) 
+      '/../third_party/%s' % libdir)
 
-import cgi
-import datetime
-import errno
-import httplib2
-import logging
-import multiprocessing
-import socks
-import tempfile
-import threading
-import urllib
-import urlparse
-from boto import cacerts
 from boto import config
-from hashlib import sha1
+import httplib2
 from oauth2client.client import AccessTokenRefreshError
 from oauth2client.client import HAS_CRYPTO
 from oauth2client.client import OAuth2Credentials
 from retry_decorator.retry_decorator import retry as Retry
+import socks
 
 if HAS_CRYPTO:
   from oauth2client.client import SignedJwtAssertionCredentials
-
-try:
-  import json
-except ImportError:
-  try:
-    # Try to import from django, should work on App Engine
-    from django.utils import simplejson as json
-  except ImportError:
-    # Try for simplejson
-    import simplejson as json
 
 LOG = logging.getLogger('oauth2_client')
 
@@ -87,6 +77,13 @@ except:
   token_exchange_lock = threading.Lock()
 
 GSUTIL_DEFAULT_SCOPE = 'https://www.googleapis.com/auth/devstorage.full_control'
+
+
+# Note: this is copied from gsutil's gslib.cred_types. It should be kept in
+# sync. Also note that this library does not use HMAC, but it's preserved from
+# gsutil's copy to maintain compatibility.
+class CredTypes(object):
+  HMAC, OAUTH2_SERVICE_ACCOUNT, OAUTH2_USER_ACCOUNT = range(3)
 
 
 class Error(Exception):
@@ -242,7 +239,7 @@ class FileSystemTokenCache(TokenCache):
     """Returns a deserialized access token from the key's filename."""
     value = None
     cache_file = self.CacheFileName(key)
-    
+
     try:
       f = open(cache_file)
       value = AccessToken.UnSerialize(f.read())
@@ -260,10 +257,10 @@ class FileSystemTokenCache(TokenCache):
               key, ' not' if value is None else '', cache_file)
     return value
 
-    
+
 class OAuth2Client(object):
   """Common logic for OAuth2 clients."""
-  
+
   def __init__(self, cache_key_base, access_token_cache=None,
                datetime_strategy=datetime.datetime, auth_uri=None,
                token_uri=None, disable_ssl_certificate_validation=False,
@@ -284,12 +281,12 @@ class OAuth2Client(object):
                                             proxy_rdns=True)
     else:
       self._proxy_info = None
-      
+
   def CreateHttpRequest(self):
     return httplib2.Http(
         ca_certs=self.ca_certs_file,
-        disable_ssl_certificate_validation
-            = self.disable_ssl_certificate_validation,
+        disable_ssl_certificate_validation=(
+            self.disable_ssl_certificate_validation),
         proxy_info=self._proxy_info)
 
   def GetAccessToken(self):
@@ -337,7 +334,7 @@ class OAuth2Client(object):
     h = sha1()
     h.update(self.cache_key_base)
     return h.hexdigest()
-  
+
   def GetAuthorizationHeader(self):
     """Gets the access token HTTP authorization header value.
 
@@ -384,19 +381,19 @@ class OAuth2ServiceAccountClient(OAuth2Client):
     self.client_id = client_id
     self.private_key = private_key
     self.password = password
-  
+
   def FetchAccessToken(self):
     credentials = SignedJwtAssertionCredentials(self.client_id,
         self.private_key, scope=GSUTIL_DEFAULT_SCOPE,
         private_key_password=self.password)
     http = self.CreateHttpRequest()
     credentials.refresh(http)
-    return AccessToken(credentials.access_token, 
+    return AccessToken(credentials.access_token,
         credentials.token_expiry, datetime_strategy=self.datetime_strategy)
 
   def GetCredentials(self):
     return SignedJwtAssertionCredentials(self.client_id,
-        self.private_key, scope=GSUTIL_DEFAULT_SCOPE, 
+        self.private_key, scope=GSUTIL_DEFAULT_SCOPE,
         private_key_password=self.password)
 
 
@@ -453,8 +450,9 @@ class OAuth2UserAccountClient(OAuth2Client):
   def GetCredentials(self):
     """Fetches a credentials objects from the provider's token endpoint."""
     access_token = self.GetAccessToken()
-    credentials = OAuth2Credentials(access_token.token, self.client_id,
-        self.client_secret, self.refresh_token, access_token.expiry, self.token_uri, None)
+    credentials = OAuth2Credentials(
+        access_token.token, self.client_id, self.client_secret,
+        self.refresh_token, access_token.expiry, self.token_uri, None)
     return credentials
 
   @Retry(GsAccessTokenRefreshError,
@@ -473,7 +471,7 @@ class OAuth2UserAccountClient(OAuth2Client):
       credentials = OAuth2Credentials(None, self.client_id, self.client_secret,
           self.refresh_token, None, self.token_uri, None)
       credentials.refresh(http)
-      return AccessToken(credentials.access_token, 
+      return AccessToken(credentials.access_token,
           credentials.token_expiry, datetime_strategy=self.datetime_strategy)
     except AccessTokenRefreshError, e:
       if 'Invalid response 403' in e.message:
