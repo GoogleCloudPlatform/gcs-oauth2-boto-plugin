@@ -55,6 +55,7 @@ for libdir in THIRD_PARTY_LIBS:
 
 from boto import config
 import httplib2
+from oauth2client.anyjson import simplejson
 from oauth2client.client import AccessTokenRefreshError
 from oauth2client.client import HAS_CRYPTO
 from oauth2client.client import OAuth2Credentials
@@ -77,6 +78,15 @@ except:
   token_exchange_lock = threading.Lock()
 
 GSUTIL_DEFAULT_SCOPE = 'https://www.googleapis.com/auth/devstorage.full_control'
+
+META_TOKEN_URI = ('http://metadata/computeMetadata/v1/instance/'
+                  'service-accounts/default/token')
+
+META_HEADERS = {
+    'X-Google-Metadata-Request': 'True'
+}
+
+METADATA_SERVER = 'http://169.254.169.254'
 
 
 # Note: this is copied from gsutil's gslib.cred_types. It should be kept in
@@ -398,7 +408,7 @@ class OAuth2ServiceAccountClient(OAuth2Client):
 
 
 class GsAccessTokenRefreshError(Exception):
-  """Rate limiting error when exchanging refresh token for access token."""
+  """Transient error when requesting access token."""
   def __init__(self, e):
     super(Exception, self).__init__(e)
 
@@ -489,6 +499,53 @@ cases in which you will see this error are:
         raise GsInvalidRefreshTokenError(e)
       else:
         raise
+
+
+class OAuth2GCEClient(OAuth2Client):
+  """OAuth2 client for GCE instance."""
+
+  def __init__(self):
+    super(OAuth2GCEClient, self).__init__(
+        cache_key_base='',
+        # Only InMemoryTokenCache can be used with empty cache_key_base.
+        access_token_cache=InMemoryTokenCache())
+
+  @Retry(GsAccessTokenRefreshError,
+         tries=6,
+         timeout_secs=1)
+  def FetchAccessToken(self):
+    response = None
+    try:
+      http = httplib2.Http()
+      response, content = http.request(META_TOKEN_URI, method='GET',
+                                       body=None, headers=META_HEADERS)
+    except Exception:
+      raise GsAccessTokenRefreshError()
+
+    if response.status == 200:
+      d = simplejson.loads(content)
+
+      return AccessToken(
+          d['access_token'],
+          datetime.datetime.now() +
+              datetime.timedelta(seconds=d.get('expires_in', 0)),
+          datetime_strategy=self.datetime_strategy)
+
+
+def _IsGCE():
+  try:
+    http = httplib2.Http()
+    response, _ = http.request(METADATA_SERVER)
+    return response.status == 200
+
+  except httplib2.ServerNotFoundError:
+    return False
+
+  return False
+
+
+def CreateOAuth2GCEClient():
+  return oauth2_client.OAuth2GCEClient() if _IsGCE() else None
 
 
 class AccessToken(object):
