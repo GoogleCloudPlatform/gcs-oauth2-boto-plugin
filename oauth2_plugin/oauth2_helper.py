@@ -89,7 +89,7 @@ def OAuth2ClientFromBotoConfig(config,
     client_secret = config.get('OAuth2', 'client_secret',
                                os.environ.get('OAUTH2_CLIENT_SECRET'))
     assert client_secret, (
-          'client_id for your application obtained from '
+          'client_secret for your application obtained from '
           'https://console.developers.google.com must be set in a boto config '
           'or in OAUTH2_CLIENT_SECRET environment variable')
     return oauth2_client.OAuth2UserAccountClient(
