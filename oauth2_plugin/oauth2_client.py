@@ -42,17 +42,6 @@ import tempfile
 import threading
 import urllib
 
-# List of third-party libraries that we'll insert into sys.path.
-THIRD_PARTY_LIBS = [
-    'socksipy-branch',
-    'retry-decorator',
-    'google-api-python-client',
-    'boto',
-]
-for libdir in THIRD_PARTY_LIBS:
-  sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) +
-      '/../third_party/%s' % libdir)
-
 from boto import config
 import httplib2
 from oauth2client.anyjson import simplejson
