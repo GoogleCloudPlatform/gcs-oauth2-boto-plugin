@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helper routines to facilitate use of oauth2_client in gsutil."""
+"""Helper routines to facilitate use of oauth2_client."""
 
 from __future__ import absolute_import
 
+import os
 import sys
 import time
 import webbrowser
@@ -24,12 +25,8 @@ from oauth2client.client import OAuth2WebServerFlow
 
 from oauth2_plugin import oauth2_client
 
-GSUTIL_CLIENT_ID = '909320924072.apps.googleusercontent.com'
-# Google OAuth2 clients always have a secret, even if the client is an installed
-# application/utility such as gsutil.  Of course, in such cases the "secret" is
-# actually publicly known; security depends entirely on the secrecy of refresh
-# tokens, which effectively become bearer tokens.
-GSUTIL_CLIENT_NOTSOSECRET = 'p3RlpR10xMFh9ZXBS/ZNLYUu'
+CLIENT_ID = None
+CLIENT_SECRET = None
 
 GOOGLE_OAUTH2_PROVIDER_AUTHORIZATION_URI = (
     'https://accounts.google.com/o/oauth2/auth')
@@ -85,9 +82,24 @@ def OAuth2ClientFromBotoConfig(config,
         proxy_host=proxy_host, proxy_port=proxy_port)
 
   elif cred_type == oauth2_client.CredTypes.OAUTH2_USER_ACCOUNT:
-    client_id = config.get('OAuth2', 'client_id', GSUTIL_CLIENT_ID)
-    client_secret = config.get(
-        'OAuth2', 'client_secret', GSUTIL_CLIENT_NOTSOSECRET)
+    client_id = config.get('OAuth2', 'client_id',
+                           os.environ.get('OAUTH2_CLIENT_ID', CLIENT_ID))
+    if not client_id:
+      raise Exception(
+          'client_id for your application obtained from '
+          'https://console.developers.google.com must be set in a boto config '
+          'or with OAUTH2_CLIENT_ID environment variable or with '
+          'oauth2_plugin.SetFallbackClientIdAndSecret function.')
+
+    client_secret = config.get('OAuth2', 'client_secret',
+                               os.environ.get('OAUTH2_CLIENT_SECRET',
+                                              CLIENT_SECRET))
+    if not client_secret:
+      raise Exception(
+          'client_secret for your application obtained from '
+          'https://console.developers.google.com must be set in a boto config '
+          'or with OAUTH2_CLIENT_SECRET environment variable or with '
+          'oauth2_plugin.SetFallbackClientIdAndSecret function.')
     return oauth2_client.OAuth2UserAccountClient(
             provider_token_uri, client_id, client_secret,
             config.get('Credentials', 'gs_oauth2_refresh_token'),
@@ -99,9 +111,7 @@ def OAuth2ClientFromBotoConfig(config,
             ca_certs_file=config.get_value('Boto', 'ca_certificates_file'))
   else:
     raise Exception('You have attempted to create an OAuth2 client without '
-        'setting up OAuth2 credentials. Please run "gsutil config" to set up '
-        'your credentials correctly or see "gsutil help config" for more '
-        'information.')
+        'setting up OAuth2 credentials.')
 
 
 def OAuth2ApprovalFlow(client, scopes, launch_browser=False):
@@ -124,8 +134,8 @@ def OAuth2ApprovalFlow(client, scopes, launch_browser=False):
 
   sys.stdout.write(
       'In your browser you should see a page that requests you to authorize '
-      'gsutil to access\nGoogle Cloud Storage on your behalf. After you '
-      'approve, an authorization code will be displayed.\n\n')
+      'access to Google Cloud Platform APIs and Services on your behalf. '
+      'After you approve, an authorization code will be displayed.\n\n')
   if (launch_browser and
       not webbrowser.open(approval_url, new=1, autoraise=True)):
     sys.stdout.write(
@@ -137,3 +147,11 @@ def OAuth2ApprovalFlow(client, scopes, launch_browser=False):
   code = raw_input('Enter the authorization code: ')
   credentials = flow.step2_exchange(code, http=client.CreateHttpRequest())
   return credentials.refresh_token
+
+
+def SetFallbackClientIdAndSecret(client_id, client_secret):
+  global CLIENT_ID
+  global CLIENT_SECRET
+
+  CLIENT_ID = client_id
+  CLIENT_SECRET = client_secret
