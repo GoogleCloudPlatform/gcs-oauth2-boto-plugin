@@ -12,6 +12,7 @@ For more information about how to use this plugin to access Google Cloud Storage
 via boto in your application, see the [GCS documentation].
 
 Client Id and Client Secret fallback logic:
+
 1. .boto config, if not set
 1. environment variables (OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET), if not set
 1. CLIENT_ID and CLIENT_SECRET values set by SetFallbackClientIdAndSecret function.
