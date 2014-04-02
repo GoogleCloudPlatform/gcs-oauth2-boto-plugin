@@ -37,6 +37,7 @@ from hashlib import sha1
 import logging
 import multiprocessing
 import os
+import socket
 import sys
 import tempfile
 import threading
@@ -527,7 +528,16 @@ def _IsGCE():
     response, _ = http.request(METADATA_SERVER)
     return response.status == 200
 
-  except httplib2.ServerNotFoundError:
+  except (httplib2.ServerNotFoundError, socket.error):
+    # We might see something like "No route to host" propagated as a socket
+    # error. We might also catch transient socket errors, but at that point
+    # we're going to fail anyway, just with a different error message. With
+    # this approach, we'll avoid having to enumerate all possible non-transient
+    # socket errors.
+    return False
+  except Exception, e:
+    LOG.warning("Failed to determine whether we're running on GCE, so we'll"
+                "assume that we aren't: %s", e)
     return False
 
   return False

@@ -25,4 +25,4 @@ from __future__ import absolute_import
 # imported, boto will pick up our subclasses of AuthHandler.
 from oauth2_plugin import oauth2_plugin
 
-from oauth2_plugin.oauth2_helper import SetClientIdAndSecret
+from oauth2_plugin.oauth2_helper import SetFallbackClientIdAndSecret
