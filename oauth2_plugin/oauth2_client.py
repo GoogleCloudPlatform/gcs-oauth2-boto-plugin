@@ -544,7 +544,7 @@ def _IsGCE():
 
 
 def CreateOAuth2GCEClient():
-  return oauth2_client.OAuth2GCEClient() if _IsGCE() else None
+  return OAuth2GCEClient() if _IsGCE() else None
 
 
 class AccessToken(object):
