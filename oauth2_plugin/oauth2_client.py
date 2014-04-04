@@ -35,13 +35,15 @@ import datetime
 import errno
 from hashlib import sha1
 import logging
-import multiprocessing
 import os
 import socket
-import sys
 import tempfile
 import threading
 import urllib
+
+if os.environ.get('USER_AGENT'):
+  import boto
+  boto.UserAgent += os.environ.get('USER_AGENT')
 
 from boto import config
 import httplib2
@@ -59,15 +61,9 @@ LOG = logging.getLogger('oauth2_client')
 
 # Lock used for checking/exchanging refresh token, so multithreaded
 # operation doesn't attempt concurrent refreshes.
-try:
-  token_exchange_lock = multiprocessing.Manager().Lock()
-except:
-  # In the event that the multiprocessing module is broken for some reason
-  # (e.g., no access to /dev/shm), we'll fall back to just using a thread-safe
-  # lock.
-  token_exchange_lock = threading.Lock()
+token_exchange_lock = threading.Lock()
 
-GSUTIL_DEFAULT_SCOPE = 'https://www.googleapis.com/auth/devstorage.full_control'
+DEFAULT_SCOPE = 'https://www.googleapis.com/auth/devstorage.full_control'
 
 META_TOKEN_URI = ('http://metadata/computeMetadata/v1/instance/'
                   'service-accounts/default/token')
@@ -383,9 +379,7 @@ class OAuth2ServiceAccountClient(OAuth2Client):
     self.password = password
 
   def FetchAccessToken(self):
-    credentials = SignedJwtAssertionCredentials(self.client_id,
-        self.private_key, scope=GSUTIL_DEFAULT_SCOPE,
-        private_key_password=self.password)
+    credentials = self.GetCredentials()
     http = self.CreateHttpRequest()
     credentials.refresh(http)
     return AccessToken(credentials.access_token,
@@ -393,7 +387,7 @@ class OAuth2ServiceAccountClient(OAuth2Client):
 
   def GetCredentials(self):
     return SignedJwtAssertionCredentials(self.client_id,
-        self.private_key, scope=GSUTIL_DEFAULT_SCOPE,
+        self.private_key, scope=DEFAULT_SCOPE,
         private_key_password=self.password)
 
 
