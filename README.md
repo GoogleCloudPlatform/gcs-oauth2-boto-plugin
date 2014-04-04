@@ -17,6 +17,13 @@ Client Id and Client Secret fallback logic:
 1. environment variables (OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET), if not set
 1. CLIENT_ID and CLIENT_SECRET values set by SetFallbackClientIdAndSecret function.
 
+Default locking mechanism used is threading.Lock.
+You can switch to using another locking mechanism by calling SetLock. Example:
+
+```
+SetLock(multiprocessing.Manager().Lock())
+```
+
 Before submitting any code, please run the tests (e.g., by running the following
 command from the root of this repository):
   python oauth2_plugin/test_oauth2_client.py

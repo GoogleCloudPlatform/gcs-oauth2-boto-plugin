@@ -155,3 +155,8 @@ def SetFallbackClientIdAndSecret(client_id, client_secret):
 
   CLIENT_ID = client_id
   CLIENT_SECRET = client_secret
+
+
+def SetLock(lock):
+  oauth2_client.token_exchange_lock = lock
+

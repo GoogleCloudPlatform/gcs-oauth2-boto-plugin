@@ -26,3 +26,5 @@ from __future__ import absolute_import
 from oauth2_plugin import oauth2_plugin
 
 from oauth2_plugin.oauth2_helper import SetFallbackClientIdAndSecret
+from oauth2_plugin.oauth2_helper import SetLock
+
