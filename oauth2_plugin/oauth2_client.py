@@ -79,7 +79,10 @@ METADATA_SERVER = 'http://169.254.169.254'
 # sync. Also note that this library does not use HMAC, but it's preserved from
 # gsutil's copy to maintain compatibility.
 class CredTypes(object):
-  HMAC, OAUTH2_SERVICE_ACCOUNT, OAUTH2_USER_ACCOUNT = range(3)
+  HMAC = "HMAC"
+  OAUTH2_SERVICE_ACCOUNT = "OAuth 2.0 Service Account"
+  OAUTH2_USER_ACCOUNT = "Oauth 2.0 User Account"
+  GCE = "GCE"
 
 
 class Error(Exception):
@@ -386,9 +389,14 @@ class OAuth2ServiceAccountClient(OAuth2Client):
         credentials.token_expiry, datetime_strategy=self.datetime_strategy)
 
   def GetCredentials(self):
-    return SignedJwtAssertionCredentials(self.client_id,
-        self.private_key, scope=DEFAULT_SCOPE,
-        private_key_password=self.password)
+    if HAS_CRYPTO:
+      return SignedJwtAssertionCredentials(self.client_id,
+          self.private_key, scope=DEFAULT_SCOPE,
+          private_key_password=self.password)
+    else:
+      raise MissingDependencyError(
+          'Service account authentication requires PyOpenSSL. Please install '
+          'this library and try again.')
 
 
 class GsAccessTokenRefreshError(Exception):
@@ -398,6 +406,11 @@ class GsAccessTokenRefreshError(Exception):
 
 
 class GsInvalidRefreshTokenError(Exception):
+  def __init__(self, e):
+    super(Exception, self).__init__(e)
+
+
+class MissingDependencyError(Exception):
   def __init__(self, e):
     super(Exception, self).__init__(e)
 
