@@ -30,14 +30,13 @@ class OAuth2Auth(AuthHandler):
   capability = ['google-oauth2', 's3']
 
   def __init__(self, path, config, provider):
+    self.oauth2_client = None
     if (provider.name == 'google'):
       if config.has_option('Credentials', 'gs_oauth2_refresh_token'):
         self.oauth2_client = oauth2_helper.OAuth2ClientFromBotoConfig(config)
-      else:
+      elif config.has_option('GoogleCompute', 'service_account'):
         self.oauth2_client = oauth2_client.CreateOAuth2GCEClient()
-        if not self.oauth2_client:
-          raise NotReadyToAuthenticate()
-    else:
+    if not self.oauth2_client:
       raise NotReadyToAuthenticate()
 
   def add_auth(self, http_request):
