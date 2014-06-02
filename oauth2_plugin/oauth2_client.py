@@ -72,8 +72,10 @@ META_HEADERS = {
     'X-Google-Metadata-Request': 'True'
 }
 
-METADATA_SERVER = 'http://169.254.169.254'
-
+METADATA_SERVER_IP = '169.254.169.254'
+METADATA_SERVER_URI = 'http://' + METADATA_SERVER_IP
+FALLBACK_META_TOKEN_URI = ('http://' + METADATA_SERVER_IP + '/computeMetadata/v1/instance/'
+                           'service-accounts/default/token')
 
 # Note: this is copied from gsutil's gslib.cred_types. It should be kept in
 # sync. Also note that this library does not use HMAC, but it's preserved from
@@ -516,8 +518,18 @@ class OAuth2GCEClient(OAuth2Client):
       http = httplib2.Http()
       response, content = http.request(META_TOKEN_URI, method='GET',
                                        body=None, headers=META_HEADERS)
-    except Exception:
-      raise GsAccessTokenRefreshError()
+    except Exception as ex:
+      exMsg = str(ex)
+      if exMsg == '':
+        try:
+          response, content = http.request(FALLBACK_META_TOKEN_URI, 
+                                           method='GET',
+                                           body=None, 
+                                           headers=META_HEADERS)
+        except Exception as exfb:
+          raise GsAccessTokenRefreshError(str(exfb))
+      else:
+        raise GsAccessTokenRefreshError(exMsg)
 
     if response.status == 200:
       d = simplejson.loads(content)
@@ -532,7 +544,7 @@ class OAuth2GCEClient(OAuth2Client):
 def _IsGCE():
   try:
     http = httplib2.Http()
-    response, _ = http.request(METADATA_SERVER)
+    response, _ = http.request(METADATA_SERVER_URI)
     return response.status == 200
 
   except (httplib2.ServerNotFoundError, socket.error):
