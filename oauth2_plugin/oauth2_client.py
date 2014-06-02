@@ -520,7 +520,7 @@ class OAuth2GCEClient(OAuth2Client):
                                        body=None, headers=META_HEADERS)
     except Exception as ex:
       exMsg = str(ex)
-      if exMsg == '':
+      if exMsg == 'Unable to find the server at metadata':
         try:
           response, content = http.request(FALLBACK_META_TOKEN_URI, 
                                            method='GET',
