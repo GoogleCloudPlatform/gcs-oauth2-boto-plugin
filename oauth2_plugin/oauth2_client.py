@@ -516,8 +516,8 @@ class OAuth2GCEClient(OAuth2Client):
       http = httplib2.Http()
       response, content = http.request(META_TOKEN_URI, method='GET',
                                        body=None, headers=META_HEADERS)
-    except Exception:
-      raise GsAccessTokenRefreshError()
+    except Exception as ex:
+      raise GsAccessTokenRefreshError(str(ex))
 
     if response.status == 200:
       d = simplejson.loads(content)
