@@ -26,7 +26,7 @@ SetLock(multiprocessing.Manager().Lock())
 
 Before submitting any code, please run the tests (e.g., by running the following
 command from the root of this repository):
-  python oauth2_plugin/test_oauth2_client.py
+  PYTHONPATH="." python -m gcs_oauth2_boto_plugin.test_oauth2_client
 
 [boto]: https://github.com/boto/boto
 [OAuth 2.0]: https://developers.google.com/accounts/docs/OAuth2Login

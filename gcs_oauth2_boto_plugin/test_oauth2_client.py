@@ -27,7 +27,7 @@ import unittest
 
 from freezegun import freeze_time
 
-from oauth2_plugin import oauth2_client
+from gcs_oauth2_boto_plugin import oauth2_client
 
 LOG = logging.getLogger('test_oauth2_client')
 

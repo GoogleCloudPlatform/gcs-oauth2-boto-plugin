@@ -19,8 +19,8 @@ from __future__ import absolute_import
 from boto.auth_handler import AuthHandler
 from boto.auth_handler import NotReadyToAuthenticate
 
-from oauth2_plugin import oauth2_client
-from oauth2_plugin import oauth2_helper
+from gcs_oauth2_boto_plugin import oauth2_client
+from gcs_oauth2_boto_plugin import oauth2_helper
 
 IS_SERVICE_ACCOUNT = False
 

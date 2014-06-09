@@ -23,7 +23,7 @@ import webbrowser
 
 from oauth2client.client import OAuth2WebServerFlow
 
-from oauth2_plugin import oauth2_client
+from gcs_oauth2_boto_plugin import oauth2_client
 
 CLIENT_ID = None
 CLIENT_SECRET = None
@@ -89,7 +89,7 @@ def OAuth2ClientFromBotoConfig(config,
           'client_id for your application obtained from '
           'https://console.developers.google.com must be set in a boto config '
           'or with OAUTH2_CLIENT_ID environment variable or with '
-          'oauth2_plugin.SetFallbackClientIdAndSecret function.')
+          'gcs_oauth2_boto_plugin.SetFallbackClientIdAndSecret function.')
 
     client_secret = config.get('OAuth2', 'client_secret',
                                os.environ.get('OAUTH2_CLIENT_SECRET',
@@ -99,7 +99,7 @@ def OAuth2ClientFromBotoConfig(config,
           'client_secret for your application obtained from '
           'https://console.developers.google.com must be set in a boto config '
           'or with OAUTH2_CLIENT_SECRET environment variable or with '
-          'oauth2_plugin.SetFallbackClientIdAndSecret function.')
+          'gcs_oauth2_boto_plugin.SetFallbackClientIdAndSecret function.')
     return oauth2_client.OAuth2UserAccountClient(
             provider_token_uri, client_id, client_secret,
             config.get('Credentials', 'gs_oauth2_refresh_token'),
