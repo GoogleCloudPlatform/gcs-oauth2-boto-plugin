@@ -55,10 +55,14 @@ def OAuth2ClientFromBotoConfig(config,
 
   proxy_host = None
   proxy_port = None
+  proxy_user = None
+  proxy_pass = None
   if (config.has_option('Boto', 'proxy')
       and config.has_option('Boto', 'proxy_port')):
     proxy_host = config.get('Boto', 'proxy')
     proxy_port = int(config.get('Boto', 'proxy_port'))
+    proxy_user = config.get('Boto', 'proxy_user', None)
+    proxy_pass = config.get('Boto', 'proxy_pass', None)
 
   provider_authorization_uri = config.get(
       'OAuth2', 'provider_authorization_uri',
@@ -74,12 +78,14 @@ def OAuth2ClientFromBotoConfig(config,
     with open(private_key_filename, 'rb') as private_key_file:
       private_key = private_key_file.read()
 
-    return oauth2_client.OAuth2ServiceAccountClient(service_client_id,
-        private_key, key_file_pass, access_token_cache=token_cache,
-        auth_uri=provider_authorization_uri, token_uri=provider_token_uri,
+    return oauth2_client.OAuth2ServiceAccountClient(
+        service_client_id, private_key, key_file_pass,
+        access_token_cache=token_cache, auth_uri=provider_authorization_uri,
+        token_uri=provider_token_uri,
         disable_ssl_certificate_validation=not(config.getbool(
             'Boto', 'https_validate_certificates', True)),
-        proxy_host=proxy_host, proxy_port=proxy_port)
+        proxy_host=proxy_host, proxy_port=proxy_port,
+        proxy_user=proxy_user, proxy_pass=proxy_pass)
 
   elif cred_type == oauth2_client.CredTypes.OAUTH2_USER_ACCOUNT:
     client_id = config.get('OAuth2', 'client_id',
@@ -101,14 +107,14 @@ def OAuth2ClientFromBotoConfig(config,
           'or with OAUTH2_CLIENT_SECRET environment variable or with '
           'gcs_oauth2_boto_plugin.SetFallbackClientIdAndSecret function.')
     return oauth2_client.OAuth2UserAccountClient(
-            provider_token_uri, client_id, client_secret,
-            config.get('Credentials', 'gs_oauth2_refresh_token'),
-            auth_uri=provider_authorization_uri,
-            access_token_cache=token_cache,
-            disable_ssl_certificate_validation=not(config.getbool(
-                'Boto', 'https_validate_certificates', True)),
-            proxy_host=proxy_host, proxy_port=proxy_port,
-            ca_certs_file=config.get_value('Boto', 'ca_certificates_file'))
+        provider_token_uri, client_id, client_secret,
+        config.get('Credentials', 'gs_oauth2_refresh_token'),
+        auth_uri=provider_authorization_uri, access_token_cache=token_cache,
+        disable_ssl_certificate_validation=not(config.getbool(
+            'Boto', 'https_validate_certificates', True)),
+        proxy_host=proxy_host, proxy_port=proxy_port,
+        proxy_user=proxy_user, proxy_pass=proxy_pass,
+        ca_certs_file=config.get_value('Boto', 'ca_certificates_file'))
   else:
     raise Exception('You have attempted to create an OAuth2 client without '
         'setting up OAuth2 credentials.')
