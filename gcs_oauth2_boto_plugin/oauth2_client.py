@@ -65,14 +65,14 @@ token_exchange_lock = threading.Lock()
 
 DEFAULT_SCOPE = 'https://www.googleapis.com/auth/devstorage.full_control'
 
-META_TOKEN_URI = ('http://metadata/computeMetadata/v1/instance/'
+METADATA_SERVER = 'http://metadata.google.internal'
+
+META_TOKEN_URI = (METADATA_SERVER + '/computeMetadata/v1/instance/'
                   'service-accounts/default/token')
 
 META_HEADERS = {
     'X-Google-Metadata-Request': 'True'
 }
-
-METADATA_SERVER = 'http://169.254.169.254'
 
 
 # Note: this is copied from gsutil's gslib.cred_types. It should be kept in
@@ -629,4 +629,3 @@ class AccessToken(object):
 
   def __str__(self):
     return 'AccessToken(token=%s, expiry=%sZ)' % (self.token, self.expiry)
-
