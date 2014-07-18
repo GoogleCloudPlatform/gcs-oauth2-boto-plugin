@@ -11,18 +11,27 @@ for the machine in a thread- and process-safe fashion.
 For more information about how to use this plugin to access Google Cloud Storage
 via boto in your application, see the [GCS documentation].
 
-Client Id and Client Secret fallback logic:
+If you wish to use this plugin without using the PyPI install as instructed in
+the documentation (e.g., for development), then you will need to manually
+acquire the modules from the requirements.txt file.
+
+
+When using this plugin, you must specify a client ID and secret. We offer the
+following methods for providing this information; if multiple methods are used,
+we will choose them in the following order:
 
 1. .boto config, if not set
-1. environment variables (OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET), if not set
-1. CLIENT_ID and CLIENT_SECRET values set by SetFallbackClientIdAndSecret function.
+2. environment variables (OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET), if not set
+3. CLIENT_ID and CLIENT_SECRET values set by SetFallbackClientIdAndSecret function.
 
-Default locking mechanism used is threading.Lock.
-You can switch to using another locking mechanism by calling SetLock. Example:
+
+The default locking mechanism used is threading.Lock. You can switch to using
+another locking mechanism by calling SetLock. Example:
 
 ```
 SetLock(multiprocessing.Manager().Lock())
 ```
+
 
 Before submitting any code, please run the tests (e.g., by running the following
 command from the root of this repository):

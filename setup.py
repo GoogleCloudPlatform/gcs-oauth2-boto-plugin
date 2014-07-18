@@ -33,7 +33,6 @@ process-safe fashion.
 requires = [
     'boto>=2.29.1',
     'httplib2>=0.8',
-    'python-gflags>=2.0',
     'google-api-python-client>=1.1',
     'pyOpenSSL>=0.13',
     # Not using 1.02 because of:
