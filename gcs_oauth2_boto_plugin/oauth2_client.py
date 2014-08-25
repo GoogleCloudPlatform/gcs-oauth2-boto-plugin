@@ -34,6 +34,7 @@ import cgi
 import datetime
 import errno
 from hashlib import sha1
+import json
 import logging
 import os
 import socket
@@ -47,7 +48,6 @@ if os.environ.get('USER_AGENT'):
 
 from boto import config
 import httplib2
-from oauth2client.anyjson import simplejson
 from oauth2client.client import AccessTokenRefreshError
 from oauth2client.client import HAS_CRYPTO
 from oauth2client.client import OAuth2Credentials
@@ -533,7 +533,7 @@ class OAuth2GCEClient(OAuth2Client):
       raise GsAccessTokenRefreshError()
 
     if response.status == 200:
-      d = simplejson.loads(content)
+      d = json.loads(content)
 
       return AccessToken(
           d['access_token'],
