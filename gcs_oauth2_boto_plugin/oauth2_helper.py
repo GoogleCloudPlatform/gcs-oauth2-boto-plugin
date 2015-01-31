@@ -100,6 +100,10 @@ def OAuth2ClientFromBotoConfig(config,
     client_secret = config.get('OAuth2', 'client_secret',
                                os.environ.get('OAUTH2_CLIENT_SECRET',
                                               CLIENT_SECRET))
+    ca_certs_file=config.get_value('Boto', 'ca_certificates_file')
+    if ca_certs_file == 'system':
+      ca_certs_file = None
+
     if not client_secret:
       raise Exception(
           'client_secret for your application obtained from '
@@ -114,7 +118,7 @@ def OAuth2ClientFromBotoConfig(config,
             'Boto', 'https_validate_certificates', True)),
         proxy_host=proxy_host, proxy_port=proxy_port,
         proxy_user=proxy_user, proxy_pass=proxy_pass,
-        ca_certs_file=config.get_value('Boto', 'ca_certificates_file'))
+        ca_certs_file=ca_certs_file)
   else:
     raise Exception('You have attempted to create an OAuth2 client without '
         'setting up OAuth2 credentials.')
