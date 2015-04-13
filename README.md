@@ -24,6 +24,8 @@ we will choose them in the following order:
 2. environment variables (OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET), if not set
 3. CLIENT_ID and CLIENT_SECRET values set by SetFallbackClientIdAndSecret function.
 
+Service accounts are supported via key files in either JSON or .p12 format.
+The file is first interpreted as JSON, with .p12 format as a fallback.
 
 The default locking mechanism used is threading.Lock. You can switch to using
 another locking mechanism by calling SetLock. Example:

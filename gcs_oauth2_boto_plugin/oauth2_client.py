@@ -48,7 +48,10 @@ if os.environ.get('USER_AGENT'):
 
 from boto import config
 import httplib2
+from oauth2client import service_account
 from oauth2client.client import AccessTokenRefreshError
+from oauth2client.client import Credentials
+from oauth2client.client import EXPIRY_FORMAT
 from oauth2client.client import HAS_CRYPTO
 from oauth2client.client import OAuth2Credentials
 from retry_decorator.retry_decorator import retry as Retry
@@ -87,11 +90,6 @@ class CredTypes(object):
 
 class Error(Exception):
   """Base exception for the OAuth2 module."""
-  pass
-
-
-class AccessTokenRefreshError(Error):
-  """Error trying to exchange a refresh token into an access token."""
   pass
 
 
@@ -347,7 +345,54 @@ class OAuth2Client(object):
     return 'Bearer %s' % self.GetAccessToken().token
 
 
-class OAuth2ServiceAccountClient(OAuth2Client):
+class _BaseOAuth2ServiceAccountClient(OAuth2Client):
+  """Base class for OAuth2ServiceAccountClients.
+
+  Args:
+    client_id: The OAuth2 client ID of this client.
+    access_token_cache: An optional instance of a TokenCache. If omitted or
+        None, an InMemoryTokenCache is used.
+    auth_uri: The URI for OAuth2 authorization.
+    token_uri: The URI used to refresh access tokens.
+    datetime_strategy: datetime module strategy to use.
+    disable_ssl_certificate_validation: True if certifications should not be
+        validated.
+    proxy_host: An optional string specifying the host name of an HTTP proxy
+        to be used.
+    proxy_port: An optional int specifying the port number of an HTTP proxy
+        to be used.
+    proxy_user: An optional string specifying the user name for interacting
+        with the HTTP proxy.
+    proxy_pass: An optional string specifying the password for interacting
+        with the HTTP proxy.
+    ca_certs_file: The cacerts.txt file to use.
+  """
+
+  def __init__(self, client_id, access_token_cache=None, auth_uri=None,
+               token_uri=None, datetime_strategy=datetime.datetime,
+               disable_ssl_certificate_validation=False,
+               proxy_host=None, proxy_port=None, proxy_user=None,
+               proxy_pass=None, ca_certs_file=None):
+
+    super(_BaseOAuth2ServiceAccountClient, self).__init__(
+        cache_key_base=client_id, auth_uri=auth_uri, token_uri=token_uri,
+        access_token_cache=access_token_cache,
+        datetime_strategy=datetime_strategy,
+        disable_ssl_certificate_validation=disable_ssl_certificate_validation,
+        proxy_host=proxy_host, proxy_port=proxy_port, proxy_user=proxy_user,
+        proxy_pass=proxy_pass, ca_certs_file=ca_certs_file)
+    self._client_id = client_id
+
+  def FetchAccessToken(self):
+    credentials = self.GetCredentials()
+    http = self.CreateHttpRequest()
+    credentials.refresh(http)
+    return AccessToken(credentials.access_token, credentials.token_expiry,
+                       datetime_strategy=self.datetime_strategy)
+
+
+class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
+  """An OAuth2 service account client using .p12 or .pem keys."""
 
   def __init__(self, client_id, private_key, password,
                access_token_cache=None, auth_uri=None, token_uri=None,
@@ -355,56 +400,117 @@ class OAuth2ServiceAccountClient(OAuth2Client):
                disable_ssl_certificate_validation=False,
                proxy_host=None, proxy_port=None, proxy_user=None,
                proxy_pass=None, ca_certs_file=None):
+    # Avoid long repeated kwargs list.
+    # pylint: disable=g-doc-args
     """Creates an OAuth2ServiceAccountClient.
 
     Args:
       client_id: The OAuth2 client ID of this client.
       private_key: The private key associated with this service account.
       password: The private key password used for the crypto signer.
-      access_token_cache: An optional instance of a TokenCache. If omitted or
-          None, an InMemoryTokenCache is used.
-      auth_uri: The URI for OAuth2 authorization.
-      token_uri: The URI used to refresh access tokens.
-      datetime_strategy: datetime module strategy to use.
-      disable_ssl_certificate_validation: True if certifications should not be
-          validated.
-      proxy_host: An optional string specifying the host name of an HTTP proxy
-          to be used.
-      proxy_port: An optional int specifying the port number of an HTTP proxy
-          to be used.
-      proxy_user: An optional string specifying the user name for interacting
-          with the HTTP proxy.
-      proxy_pass: An optional string specifying the password for interacting
-          with the HTTP proxy.
-      ca_certs_file: The cacerts.txt file to use.
+
+    Keyword arguments match the _BaseOAuth2ServiceAccountClient class.
     """
+    # pylint: enable=g-doc-args
     super(OAuth2ServiceAccountClient, self).__init__(
-        cache_key_base=client_id, auth_uri=auth_uri, token_uri=token_uri,
+        client_id, auth_uri=auth_uri, token_uri=token_uri,
         access_token_cache=access_token_cache,
         datetime_strategy=datetime_strategy,
         disable_ssl_certificate_validation=disable_ssl_certificate_validation,
         proxy_host=proxy_host, proxy_port=proxy_port, proxy_user=proxy_user,
         proxy_pass=proxy_pass, ca_certs_file=ca_certs_file)
-    self.client_id = client_id
-    self.private_key = private_key
-    self.password = password
-
-  def FetchAccessToken(self):
-    credentials = self.GetCredentials()
-    http = self.CreateHttpRequest()
-    credentials.refresh(http)
-    return AccessToken(credentials.access_token,
-        credentials.token_expiry, datetime_strategy=self.datetime_strategy)
+    self._private_key = private_key
+    self._password = password
 
   def GetCredentials(self):
     if HAS_CRYPTO:
-      return SignedJwtAssertionCredentials(self.client_id,
-          self.private_key, scope=DEFAULT_SCOPE,
-          private_key_password=self.password)
+      return SignedJwtAssertionCredentials(
+          self._client_id, self._private_key, scope=DEFAULT_SCOPE,
+          private_key_password=self._password)
     else:
       raise MissingDependencyError(
           'Service account authentication requires PyOpenSSL. Please install '
           'this library and try again.')
+
+
+# TODO: oauth2client should expose _ServiceAccountCredentials as it is the only
+# way to properly set scopes. In the longer term this class should probably
+# be refactored into oauth2client directly in a way that allows for setting of
+# user agent and scopes. https://github.com/google/oauth2client/issues/164
+# pylint: disable=protected-access
+class ServiceAccountCredentials(service_account._ServiceAccountCredentials):
+
+  def to_json(self):
+    self.service_account_name = self._service_account_email
+    strip = (['_private_key'] +
+             Credentials.NON_SERIALIZED_MEMBERS)
+    return super(ServiceAccountCredentials, self)._to_json(strip)
+
+  @classmethod
+  def from_json(cls, s):
+    try:
+      data = json.loads(s)
+      retval = ServiceAccountCredentials(
+          service_account_id=data['_service_account_id'],
+          service_account_email=data['_service_account_email'],
+          private_key_id=data['_private_key_id'],
+          private_key_pkcs8_text=data['_private_key_pkcs8_text'],
+          scopes=[DEFAULT_SCOPE])
+          # TODO: Need to define user agent here,
+          # but it is not known until runtime.
+      retval.invalid = data['invalid']
+      retval.access_token = data['access_token']
+      if 'token_expiry' in data:
+        retval.token_expiry = datetime.datetime.strptime(
+            data['token_expiry'], EXPIRY_FORMAT)
+      return retval
+    except KeyError, e:
+      raise Exception('Your JSON credentials are invalid; '
+                      'missing required entry %s.' % e[0])
+# pylint: enable=protected-access
+
+
+class OAuth2JsonServiceAccountClient(_BaseOAuth2ServiceAccountClient):
+  """An OAuth2 service account client using .json keys."""
+
+  def __init__(self, client_id, service_account_email, private_key_id,
+               private_key_pkcs8_text, access_token_cache=None, auth_uri=None,
+               token_uri=None, datetime_strategy=datetime.datetime,
+               disable_ssl_certificate_validation=False,
+               proxy_host=None, proxy_port=None, proxy_user=None,
+               proxy_pass=None, ca_certs_file=None):
+    # Avoid long repeated kwargs list.
+    # pylint: disable=g-doc-args
+    """Creates an OAuth2JsonServiceAccountClient.
+
+    Args:
+      client_id: The OAuth2 client ID of this client.
+      client_email: The email associated with this client.
+      private_key_id: The private key id associated with this service account.
+      private_key_pkcs8_text: The pkcs8 text containing the private key data.
+
+    Keyword arguments match the _BaseOAuth2ServiceAccountClient class.
+    """
+    # pylint: enable=g-doc-args
+    super(OAuth2JsonServiceAccountClient, self).__init__(
+        client_id, auth_uri=auth_uri, token_uri=token_uri,
+        access_token_cache=access_token_cache,
+        datetime_strategy=datetime_strategy,
+        disable_ssl_certificate_validation=disable_ssl_certificate_validation,
+        proxy_host=proxy_host, proxy_port=proxy_port, proxy_user=proxy_user,
+        proxy_pass=proxy_pass, ca_certs_file=ca_certs_file)
+    self._service_account_email = service_account_email
+    self._private_key_id = private_key_id
+    self._private_key_pkcs8_text = private_key_pkcs8_text
+
+  def GetCredentials(self):
+    return ServiceAccountCredentials(
+        service_account_id=self._client_id,
+        service_account_email=self._service_account_email,
+        private_key_id=self._private_key_id,
+        private_key_pkcs8_text=self._private_key_pkcs8_text,
+        scopes=[DEFAULT_SCOPE])
+        # TODO: Need to plumb user agent through here.
 
 
 class GsAccessTokenRefreshError(Exception):

@@ -16,6 +16,7 @@
 
 from __future__ import absolute_import
 
+import json
 import os
 import sys
 import time
@@ -36,8 +37,9 @@ GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD = 'notasecret'
 
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
-def OAuth2ClientFromBotoConfig(config,
-    cred_type=oauth2_client.CredTypes.OAUTH2_USER_ACCOUNT):
+
+def OAuth2ClientFromBotoConfig(
+    config, cred_type=oauth2_client.CredTypes.OAUTH2_USER_ACCOUNT):
   token_cache = None
   token_cache_type = config.get('OAuth2', 'token_cache', 'file_system')
   if token_cache_type == 'file_system':
@@ -73,19 +75,43 @@ def OAuth2ClientFromBotoConfig(config,
   if cred_type == oauth2_client.CredTypes.OAUTH2_SERVICE_ACCOUNT:
     service_client_id = config.get('Credentials', 'gs_service_client_id', '')
     private_key_filename = config.get('Credentials', 'gs_service_key_file', '')
-    key_file_pass = config.get('Credentials', 'gs_service_key_file_password',
-                               GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD)
     with open(private_key_filename, 'rb') as private_key_file:
       private_key = private_key_file.read()
 
-    return oauth2_client.OAuth2ServiceAccountClient(
-        service_client_id, private_key, key_file_pass,
-        access_token_cache=token_cache, auth_uri=provider_authorization_uri,
-        token_uri=provider_token_uri,
-        disable_ssl_certificate_validation=not(config.getbool(
-            'Boto', 'https_validate_certificates', True)),
-        proxy_host=proxy_host, proxy_port=proxy_port,
-        proxy_user=proxy_user, proxy_pass=proxy_pass)
+    json_key = None
+    try:
+      json_key = json.loads(private_key)
+    except ValueError:
+      pass
+    if json_key:
+      for json_entry in ('client_id', 'client_email', 'private_key_id',
+                         'private_key'):
+        if json_entry not in json_key:
+          raise Exception('The JSON private key file at %s '
+                          'did not contain the required entry: %s' %
+                          (private_key_filename, json_entry))
+
+      return oauth2_client.OAuth2JsonServiceAccountClient(
+          json_key['client_id'], json_key['client_email'],
+          json_key['private_key_id'], json_key['private_key'],
+          access_token_cache=token_cache, auth_uri=provider_authorization_uri,
+          token_uri=provider_token_uri,
+          disable_ssl_certificate_validation=not(config.getbool(
+              'Boto', 'https_validate_certificates', True)),
+          proxy_host=proxy_host, proxy_port=proxy_port,
+          proxy_user=proxy_user, proxy_pass=proxy_pass)
+    else:
+      key_file_pass = config.get('Credentials', 'gs_service_key_file_password',
+                                 GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD)
+
+      return oauth2_client.OAuth2ServiceAccountClient(
+          service_client_id, private_key, key_file_pass,
+          access_token_cache=token_cache, auth_uri=provider_authorization_uri,
+          token_uri=provider_token_uri,
+          disable_ssl_certificate_validation=not(config.getbool(
+              'Boto', 'https_validate_certificates', True)),
+          proxy_host=proxy_host, proxy_port=proxy_port,
+          proxy_user=proxy_user, proxy_pass=proxy_pass)
 
   elif cred_type == oauth2_client.CredTypes.OAUTH2_USER_ACCOUNT:
     client_id = config.get('OAuth2', 'client_id',
@@ -121,7 +147,7 @@ def OAuth2ClientFromBotoConfig(config,
         ca_certs_file=ca_certs_file)
   else:
     raise Exception('You have attempted to create an OAuth2 client without '
-        'setting up OAuth2 credentials.')
+                    'setting up OAuth2 credentials.')
 
 
 def OAuth2ApprovalFlow(client, scopes, launch_browser=False):

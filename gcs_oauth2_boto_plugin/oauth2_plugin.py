@@ -50,7 +50,6 @@ class OAuth2ServiceAccountAuth(AuthHandler):
 
   def __init__(self, path, config, provider):
     if (provider.name == 'google'
-        and config.has_option('Credentials', 'gs_service_client_id')
         and config.has_option('Credentials', 'gs_service_key_file')):
       self.oauth2_client = oauth2_helper.OAuth2ClientFromBotoConfig(config,
           cred_type=oauth2_client.CredTypes.OAUTH2_SERVICE_ACCOUNT)
