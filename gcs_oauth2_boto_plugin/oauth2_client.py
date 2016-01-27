@@ -345,53 +345,17 @@ class OAuth2Client(object):
     return 'Bearer %s' % self.GetAccessToken().token
 
 
-class _BaseOAuth2ServiceAccountClient(OAuth2Client):
-  """Base class for OAuth2ServiceAccountClients.
+class Oauth2GoogleClient(OAuth2Client):
+  def __init__(self, credentials):
+    self._credentials = credentials
 
-  Args:
-    client_id: The OAuth2 client ID of this client.
-    access_token_cache: An optional instance of a TokenCache. If omitted or
-        None, an InMemoryTokenCache is used.
-    auth_uri: The URI for OAuth2 authorization.
-    token_uri: The URI used to refresh access tokens.
-    datetime_strategy: datetime module strategy to use.
-    disable_ssl_certificate_validation: True if certifications should not be
-        validated.
-    proxy_host: An optional string specifying the host name of an HTTP proxy
-        to be used.
-    proxy_port: An optional int specifying the port number of an HTTP proxy
-        to be used.
-    proxy_user: An optional string specifying the user name for interacting
-        with the HTTP proxy.
-    proxy_pass: An optional string specifying the password for interacting
-        with the HTTP proxy.
-    ca_certs_file: The cacerts.txt file to use.
-  """
-
-  def __init__(self, client_id, access_token_cache=None, auth_uri=None,
-               token_uri=None, datetime_strategy=datetime.datetime,
-               disable_ssl_certificate_validation=False,
-               proxy_host=None, proxy_port=None, proxy_user=None,
-               proxy_pass=None, ca_certs_file=None):
-
-    super(_BaseOAuth2ServiceAccountClient, self).__init__(
-        cache_key_base=client_id, auth_uri=auth_uri, token_uri=token_uri,
-        access_token_cache=access_token_cache,
-        datetime_strategy=datetime_strategy,
-        disable_ssl_certificate_validation=disable_ssl_certificate_validation,
-        proxy_host=proxy_host, proxy_port=proxy_port, proxy_user=proxy_user,
-        proxy_pass=proxy_pass, ca_certs_file=ca_certs_file)
-    self._client_id = client_id
-
-  def FetchAccessToken(self):
-    credentials = self.GetCredentials()
-    http = self.CreateHttpRequest()
-    credentials.refresh(http)
-    return AccessToken(credentials.access_token, credentials.token_expiry,
-                       datetime_strategy=self.datetime_strategy)
+  def GetCredentials(self):
+    if self._credentials.create_scoped_required():
+      return self._credentials.create_scoped([DEFAULT_SCOPE])
+    return self._credentials
 
 
-class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
+class OAuth2ServiceAccountClient(OAuth2Client):
   """An OAuth2 service account client using .p12 or .pem keys."""
 
   def __init__(self, client_id, private_key, password,
@@ -413,12 +377,13 @@ class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
     """
     # pylint: enable=g-doc-args
     super(OAuth2ServiceAccountClient, self).__init__(
-        client_id, auth_uri=auth_uri, token_uri=token_uri,
+        cache_key_base=client_id, auth_uri=auth_uri, token_uri=token_uri,
         access_token_cache=access_token_cache,
         datetime_strategy=datetime_strategy,
         disable_ssl_certificate_validation=disable_ssl_certificate_validation,
         proxy_host=proxy_host, proxy_port=proxy_port, proxy_user=proxy_user,
         proxy_pass=proxy_pass, ca_certs_file=ca_certs_file)
+    self._client_id = client_id
     self._private_key = private_key
     self._password = password
 
@@ -431,6 +396,13 @@ class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
       raise MissingDependencyError(
           'Service account authentication requires PyOpenSSL. Please install '
           'this library and try again.')
+
+  def FetchAccessToken(self):
+    credentials = self.GetCredentials()
+    http = self.CreateHttpRequest()
+    credentials.refresh(http)
+    return AccessToken(credentials.access_token, credentials.token_expiry,
+                       datetime_strategy=self.datetime_strategy)
 
 
 # TODO: oauth2client should expose _ServiceAccountCredentials as it is the only
@@ -467,50 +439,6 @@ class ServiceAccountCredentials(service_account._ServiceAccountCredentials):
     except KeyError, e:
       raise Exception('Your JSON credentials are invalid; '
                       'missing required entry %s.' % e[0])
-# pylint: enable=protected-access
-
-
-class OAuth2JsonServiceAccountClient(_BaseOAuth2ServiceAccountClient):
-  """An OAuth2 service account client using .json keys."""
-
-  def __init__(self, client_id, service_account_email, private_key_id,
-               private_key_pkcs8_text, access_token_cache=None, auth_uri=None,
-               token_uri=None, datetime_strategy=datetime.datetime,
-               disable_ssl_certificate_validation=False,
-               proxy_host=None, proxy_port=None, proxy_user=None,
-               proxy_pass=None, ca_certs_file=None):
-    # Avoid long repeated kwargs list.
-    # pylint: disable=g-doc-args
-    """Creates an OAuth2JsonServiceAccountClient.
-
-    Args:
-      client_id: The OAuth2 client ID of this client.
-      client_email: The email associated with this client.
-      private_key_id: The private key id associated with this service account.
-      private_key_pkcs8_text: The pkcs8 text containing the private key data.
-
-    Keyword arguments match the _BaseOAuth2ServiceAccountClient class.
-    """
-    # pylint: enable=g-doc-args
-    super(OAuth2JsonServiceAccountClient, self).__init__(
-        client_id, auth_uri=auth_uri, token_uri=token_uri,
-        access_token_cache=access_token_cache,
-        datetime_strategy=datetime_strategy,
-        disable_ssl_certificate_validation=disable_ssl_certificate_validation,
-        proxy_host=proxy_host, proxy_port=proxy_port, proxy_user=proxy_user,
-        proxy_pass=proxy_pass, ca_certs_file=ca_certs_file)
-    self._service_account_email = service_account_email
-    self._private_key_id = private_key_id
-    self._private_key_pkcs8_text = private_key_pkcs8_text
-
-  def GetCredentials(self):
-    return ServiceAccountCredentials(
-        service_account_id=self._client_id,
-        service_account_email=self._service_account_email,
-        private_key_id=self._private_key_id,
-        private_key_pkcs8_text=self._private_key_pkcs8_text,
-        scopes=[DEFAULT_SCOPE])
-        # TODO: Need to plumb user agent through here.
 
 
 class GsAccessTokenRefreshError(Exception):
