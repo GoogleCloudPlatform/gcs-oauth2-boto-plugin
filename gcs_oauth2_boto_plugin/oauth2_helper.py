@@ -22,6 +22,7 @@ import sys
 import time
 import webbrowser
 
+import oauth2client
 from oauth2client.client import OAuth2WebServerFlow
 
 from gcs_oauth2_boto_plugin import oauth2_client
@@ -84,22 +85,9 @@ def OAuth2ClientFromBotoConfig(
     except ValueError:
       pass
     if json_key:
-      for json_entry in ('client_id', 'client_email', 'private_key_id',
-                         'private_key'):
-        if json_entry not in json_key:
-          raise Exception('The JSON private key file at %s '
-                          'did not contain the required entry: %s' %
-                          (private_key_filename, json_entry))
-
-      return oauth2_client.OAuth2JsonServiceAccountClient(
-          json_key['client_id'], json_key['client_email'],
-          json_key['private_key_id'], json_key['private_key'],
-          access_token_cache=token_cache, auth_uri=provider_authorization_uri,
-          token_uri=provider_token_uri,
-          disable_ssl_certificate_validation=not(config.getbool(
-              'Boto', 'https_validate_certificates', True)),
-          proxy_host=proxy_host, proxy_port=proxy_port,
-          proxy_user=proxy_user, proxy_pass=proxy_pass)
+      return oauth2_client.Oauth2GoogleClient(
+        oauth2client.client.GoogleCredentials.from_stream(private_key_filename)
+      )
     else:
       key_file_pass = config.get('Credentials', 'gs_service_key_file_password',
                                  GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD)
