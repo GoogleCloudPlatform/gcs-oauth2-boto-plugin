@@ -43,7 +43,7 @@ requires = [
 
 setup(
     name='gcs-oauth2-boto-plugin',
-    version='1.9',
+    version='1.9.1',
     url='https://developers.google.com/storage/docs/gspythonlibrary',
     download_url=('https://github.com/GoogleCloudPlatform'
                   '/gcs-oauth2-boto-plugin'),

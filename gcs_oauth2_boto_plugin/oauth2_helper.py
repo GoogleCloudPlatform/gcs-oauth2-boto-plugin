@@ -14,7 +14,7 @@
 
 """Helper routines to facilitate use of oauth2_client."""
 
-from __future__ import absolute_import
+
 
 import json
 import os
@@ -168,7 +168,7 @@ def OAuth2ApprovalFlow(client, scopes, launch_browser=False):
   # Short delay; webbrowser.open on linux insists on printing out a message
   # which we don't want to run into the prompt for the auth code.
   time.sleep(2)
-  code = raw_input('Enter the authorization code: ')
+  code = input('Enter the authorization code: ')
   credentials = flow.step2_exchange(code, http=client.CreateHttpRequest())
   return credentials.refresh_token
 
