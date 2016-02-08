@@ -19,7 +19,10 @@
 import datetime
 import httplib2
 import logging
-import mox
+try:
+  from mox3 import mox
+except ImportError:
+  import mox as mox
 import os
 import stat
 import sys

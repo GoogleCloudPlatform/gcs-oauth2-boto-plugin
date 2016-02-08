@@ -29,8 +29,11 @@ notice.
 # encapsulates both refresh and access tokens).
 
 
+try:
+  from urllib.parse import parse_qs
+except ImportError:
+  from cgi import parse_qs
 
-import cgi
 import datetime
 import errno
 from hashlib import sha1
@@ -40,7 +43,11 @@ import os
 import socket
 import tempfile
 import threading
-import urllib.request, urllib.parse, urllib.error
+
+try:
+  from urllib.parse import urlencode
+except ImportError:
+  from urllib import urlencode
 
 if os.environ.get('USER_AGENT'):
   import boto
@@ -229,7 +236,7 @@ class FileSystemTokenCache(TokenCache):
                   'Failed to create cache file %s: %s', cache_file, e)
       return
     f = os.fdopen(fd, 'w+b')
-    f.write(value.Serialize())
+    f.write(value.Serialize().encode('utf-8'))
     f.close()
 
   def GetToken(self, key):
@@ -332,7 +339,7 @@ class OAuth2Client(object):
       A hash key.
     """
     h = sha1()
-    h.update(self.cache_key_base)
+    h.update(self.cache_key_base.encode('utf-8'))
     return h.hexdigest()
 
   def GetAuthorizationHeader(self):
@@ -615,7 +622,7 @@ class AccessToken(object):
 
     def GetValue(d, key):
       return (d.get(key, [None]))[0]
-    kv = cgi.parse_qs(query)
+    kv = parse_qs(query)
     if not kv['token']:
       return None
     expiry = None
@@ -637,7 +644,7 @@ class AccessToken(object):
       t = self.expiry
       tupl = (t.year, t.month, t.day, t.hour, t.minute, t.second, t.microsecond)
       kv['expiry'] = ','.join([str(i) for i in tupl])
-    return urllib.parse.urlencode(kv)
+    return urlencode(kv)
 
   def ShouldRefresh(self, time_delta=300):
     """Whether the access token needs to be refreshed.
