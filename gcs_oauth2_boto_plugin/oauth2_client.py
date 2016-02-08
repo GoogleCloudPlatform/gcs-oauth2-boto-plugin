@@ -353,13 +353,32 @@ class OAuth2Client(object):
 
 
 class Oauth2GoogleClient(OAuth2Client):
-  def __init__(self, credentials):
+  def __init__(self, credentials, client_id, access_token_cache=None, auth_uri=None, token_uri=None,
+               datetime_strategy=datetime.datetime,
+               disable_ssl_certificate_validation=False,
+               proxy_host=None, proxy_port=None, proxy_user=None,
+               proxy_pass=None, ca_certs_file=None):
+    super(Oauth2GoogleClient, self).__init__(
+        cache_key_base=client_id, auth_uri=auth_uri, token_uri=token_uri,
+        access_token_cache=access_token_cache,
+        datetime_strategy=datetime_strategy,
+        disable_ssl_certificate_validation=disable_ssl_certificate_validation,
+        proxy_host=proxy_host, proxy_port=proxy_port, proxy_user=proxy_user,
+        proxy_pass=proxy_pass, ca_certs_file=ca_certs_file)
+
     self._credentials = credentials
 
   def GetCredentials(self):
     if self._credentials.create_scoped_required():
       return self._credentials.create_scoped([DEFAULT_SCOPE])
     return self._credentials
+
+  def FetchAccessToken(self):
+    credentials = self.GetCredentials()
+    http = self.CreateHttpRequest()
+    credentials.refresh(http)
+    return AccessToken(credentials.access_token, credentials.token_expiry,
+                       datetime_strategy=self.datetime_strategy)
 
 
 class OAuth2ServiceAccountClient(OAuth2Client):

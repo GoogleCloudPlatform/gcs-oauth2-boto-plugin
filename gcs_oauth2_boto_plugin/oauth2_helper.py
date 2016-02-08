@@ -81,12 +81,19 @@ def OAuth2ClientFromBotoConfig(
 
     json_key = None
     try:
-      json_key = json.loads(private_key)
+      json_key = json.loads(private_key.decode('utf-8'))
     except ValueError:
       pass
     if json_key:
       return oauth2_client.Oauth2GoogleClient(
-        oauth2client.client.GoogleCredentials.from_stream(private_key_filename)
+        oauth2client.client.GoogleCredentials.from_stream(private_key_filename),
+        json_key['client_id'],
+        access_token_cache=token_cache, auth_uri=provider_authorization_uri,
+          token_uri=provider_token_uri,
+          disable_ssl_certificate_validation=not(config.getbool(
+              'Boto', 'https_validate_certificates', True)),
+          proxy_host=proxy_host, proxy_port=proxy_port,
+          proxy_user=proxy_user, proxy_pass=proxy_pass
       )
     else:
       key_file_pass = config.get('Credentials', 'gs_service_key_file_password',
