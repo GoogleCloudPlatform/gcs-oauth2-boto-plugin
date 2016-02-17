@@ -74,7 +74,7 @@ META_TOKEN_URI = (METADATA_SERVER + '/computeMetadata/v1/instance/'
                   'service-accounts/default/token')
 
 META_HEADERS = {
-    'X-Google-Metadata-Request': 'True'
+    'Metadata-Flavor': 'Google'
 }
 
 
