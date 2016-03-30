@@ -43,6 +43,11 @@ class OAuth2Auth(AuthHandler):
     http_request.headers['Authorization'] = \
         self.oauth2_client.GetAuthorizationHeader()
 
+  def sign_string(self, string_to_sign):
+    import base64
+    from oauth2client.crypt import Signer
+    signer = Signer.from_string(self.oauth2_client._private_key)
+    return base64.b64encode(signer.sign(string_to_sign))
 
 class OAuth2ServiceAccountAuth(AuthHandler):
 
@@ -68,3 +73,8 @@ class OAuth2ServiceAccountAuth(AuthHandler):
     http_request.headers['Authorization'] = \
         self.oauth2_client.GetAuthorizationHeader()
 
+  def sign_string(self, string_to_sign):
+    import base64
+    from oauth2client.crypt import Signer
+    signer = Signer.from_string(self.oauth2_client._private_key)
+    return base64.b64encode(signer.sign(string_to_sign))
