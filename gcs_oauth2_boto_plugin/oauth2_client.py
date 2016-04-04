@@ -463,7 +463,7 @@ class ServiceAccountCredentials(service_account._ServiceAccountCredentials):
   @classmethod
   def from_json(cls, s):
     try:
-      data = json.loads(s)
+      data = json.loads(s.decode('utf-8'))
       retval = ServiceAccountCredentials(
           service_account_id=data['_service_account_id'],
           service_account_email=data['_service_account_email'],
@@ -653,7 +653,7 @@ class OAuth2GCEClient(OAuth2Client):
       raise GsAccessTokenRefreshError()
 
     if response.status == 200:
-      d = json.loads(content)
+      d = json.loads(content.decode('utf-8'))
 
       return AccessToken(
           d['access_token'],
