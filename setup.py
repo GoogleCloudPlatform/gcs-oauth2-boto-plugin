@@ -32,7 +32,7 @@ for the machine in a thread- and process-safe fashion.
 requires = [
     'boto>=2.29.1',
     'httplib2>=0.8',
-    'oauth2client==1.5.2',
+    'oauth2client>=1.5.2',
     'pyOpenSSL>=0.13',
     # Not using 1.02 because of:
     #   https://code.google.com/p/socksipy-branch/issues/detail?id=3
