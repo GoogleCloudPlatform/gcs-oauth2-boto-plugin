@@ -65,7 +65,13 @@ from retry_decorator.retry_decorator import retry as Retry
 import socks
 
 if HAS_CRYPTO:
-  from oauth2client.client import SignedJwtAssertionCredentials
+  try:
+    from oauth2client.client import SignedJwtAssertionCredentials
+    USE_NEW_OAUTH=False
+    ServiceAccountCredentials = service_account._ServiceAccountCredentials
+  except ImportError:
+    from oauth2client.service_account import ServiceAccountCredentials
+    USE_NEW_OAUTH=True
 
 LOG = logging.getLogger('oauth2_client')
 
@@ -438,9 +444,14 @@ class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
 
   def GetCredentials(self):
     if HAS_CRYPTO:
-      return SignedJwtAssertionCredentials(
-          self._client_id, self._private_key, scope=DEFAULT_SCOPE,
-          private_key_password=self._password)
+      if USE_NEW_OAUTH:
+        return ServiceAccountCredentials._from_p12_keyfile_contents(
+            self._client_id, self._private_key, private_key_password=self._password,
+            scopes=DEFAULT_SCOPE)
+      else:
+        return SignedJwtAssertionCredentials(
+            self._client_id, self._private_key, scope=DEFAULT_SCOPE,
+            private_key_password=self._password)
     else:
       raise MissingDependencyError(
           'Service account authentication requires PyOpenSSL. Please install '
@@ -452,7 +463,7 @@ class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
 # be refactored into oauth2client directly in a way that allows for setting of
 # user agent and scopes. https://github.com/google/oauth2client/issues/164
 # pylint: disable=protected-access
-class ServiceAccountCredentials(service_account._ServiceAccountCredentials):
+class ServiceAccountCredentials(ServiceAccountCredentials):
 
   def to_json(self):
     self.service_account_name = self._service_account_email
