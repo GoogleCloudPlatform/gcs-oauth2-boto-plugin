@@ -527,15 +527,26 @@ class OAuth2JsonServiceAccountClient(_BaseOAuth2ServiceAccountClient):
     self._service_account_email = service_account_email
     self._private_key_id = private_key_id
     self._private_key_pkcs8_text = private_key_pkcs8_text
+    self.client_id = client_id
 
   def GetCredentials(self):
-    return ServiceAccountCredentials(
-        service_account_id=self._client_id,
-        service_account_email=self._service_account_email,
-        private_key_id=self._private_key_id,
-        private_key_pkcs8_text=self._private_key_pkcs8_text,
-        scopes=[DEFAULT_SCOPE])
-        # TODO: Need to plumb user agent through here.
+    if USE_NEW_OAUTH:
+      keyfile_dict = {
+            'type': 'service_account',
+            'client_email': self._service_account_email,
+            'private_key_id': self._private_key_id,
+            'private_key': self._private_key_pkcs8_text,
+            'client_id': self.client_id,
+        }
+      return ServiceAccountCredentials.from_json_keyfile_dict(keyfile_dict, scopes=[DEFAULT_SCOPE])
+    else:
+      return ServiceAccountCredentials(
+          service_account_id=self._client_id,
+          service_account_email=self._service_account_email,
+          private_key_id=self._private_key_id,
+          private_key_pkcs8_text=self._private_key_pkcs8_text,
+          scopes=[DEFAULT_SCOPE])
+          # TODO: Need to plumb user agent through here.
 
 
 class GsAccessTokenRefreshError(Exception):
