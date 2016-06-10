@@ -72,6 +72,13 @@ if HAS_CRYPTO:
   except ImportError:
     from oauth2client.service_account import ServiceAccountCredentials
     USE_NEW_OAUTH=True
+else:
+  try:
+    from oauth2client.service_account import ServiceAccountCredentials
+    USE_NEW_OAUTH=True
+  except ImportError:
+    ServiceAccountCredentials = service_account._ServiceAccountCredentials
+    USE_NEW_OAUTH=False
 
 LOG = logging.getLogger('oauth2_client')
 
