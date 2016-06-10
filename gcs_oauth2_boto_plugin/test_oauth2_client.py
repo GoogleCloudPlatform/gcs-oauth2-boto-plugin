@@ -27,6 +27,7 @@ import os
 import stat
 import sys
 import unittest
+import six
 
 from freezegun import freeze_time
 
@@ -334,17 +335,32 @@ class OAuth2GCEClientTest(unittest.TestCase):
   def testFetchAccessToken(self):
     token = 'my_token'
 
-    self.mock_http.request(
-        oauth2_client.META_TOKEN_URI,
-        method='GET',
-        body=None,
-        headers=oauth2_client.META_HEADERS).AndReturn((
-            FakeResponse(200),
-            '{"access_token":"%(TOKEN)s",'
-            '"expires_in": %(EXPIRES_IN)d}' % {
-                'TOKEN': token,
-                'EXPIRES_IN': 42
-            }))
+    if six.PY2:      
+      # http.request should return str if python2, bytes if python3
+      self.mock_http.request(
+          oauth2_client.META_TOKEN_URI,
+          method='GET',
+          body=None,
+          headers=oauth2_client.META_HEADERS).AndReturn((
+              FakeResponse(200),
+              '{"access_token":"%(TOKEN)s",'
+              '"expires_in": %(EXPIRES_IN)d}' % {
+                  'TOKEN': token,
+                  'EXPIRES_IN': 42
+              }))
+    else:
+      # Python >2 should return bytes
+      self.mock_http.request(
+          oauth2_client.META_TOKEN_URI,
+          method='GET',
+          body=None,
+          headers=oauth2_client.META_HEADERS).AndReturn((
+              FakeResponse(200),
+              ('{"access_token":"%(TOKEN)s",'
+              '"expires_in": %(EXPIRES_IN)d}' % {
+                  'TOKEN': token,
+                  'EXPIRES_IN': 42
+              }).encode('utf-8')))
 
     self.mox.ReplayAll()
 
