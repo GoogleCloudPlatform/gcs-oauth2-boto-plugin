@@ -14,16 +14,20 @@
 
 """Unit tests for oauth2_client and related classes."""
 
-from __future__ import absolute_import
+
 
 import datetime
 import httplib2
 import logging
-import mox
+try:
+  from mox3 import mox
+except ImportError:
+  import mox as mox
 import os
 import stat
 import sys
 import unittest
+import six
 
 from freezegun import freeze_time
 
@@ -136,8 +140,8 @@ class OAuth2AccountClientTest(unittest.TestCase):
     # There's no access token in the cache; verify that we fetched a fresh
     # token.
     self.assertTrue(self.client.fetched_token)
-    self.assertEquals(access_token_1, token_1.token)
-    self.assertEquals(self.start_time + datetime.timedelta(minutes=60),
+    self.assertEqual(access_token_1, token_1.token)
+    self.assertEqual(self.start_time + datetime.timedelta(minutes=60),
                       token_1.expiry)
 
     # Advance time by less than expiry time, and fetch another token.
@@ -148,8 +152,8 @@ class OAuth2AccountClientTest(unittest.TestCase):
 
     # Since the access token wasn't expired, we get the cache token, and there
     # was no refresh request.
-    self.assertEquals(token_1, token_2)
-    self.assertEquals(access_token_1, token_2.token)
+    self.assertEqual(token_1, token_2)
+    self.assertEqual(access_token_1, token_2.token)
     self.assertFalse(self.client.fetched_token)
 
     # Advance time past expiry time, and fetch another token.
@@ -161,7 +165,7 @@ class OAuth2AccountClientTest(unittest.TestCase):
 
     # This should have resulted in a refresh request and a fresh access token.
     self.assertTrue(self.client.fetched_token)
-    self.assertEquals(
+    self.assertEqual(
         self.mock_datetime.mock_now + datetime.timedelta(minutes=60),
         token_3.expiry)
 
@@ -223,7 +227,7 @@ class AccessTokenTest(unittest.TestCase):
     LOG.debug('testSerialization: serialized_token=%s', serialized_token)
 
     token2 = oauth2_client.AccessToken.UnSerialize(serialized_token)
-    self.assertEquals(token, token2)
+    self.assertEqual(token, token2)
 
 
 class FileSystemTokenCacheTest(unittest.TestCase):
@@ -247,30 +251,30 @@ class FileSystemTokenCacheTest(unittest.TestCase):
     self.cache.PutToken(self.key, self.token_1)
     # Assert that the cache file exists and has correct permissions.
     if not IS_WINDOWS:
-      self.assertEquals(
-          0600,
+      self.assertEqual(
+          0o600,
           stat.S_IMODE(os.stat(self.cache.CacheFileName(self.key)).st_mode))
 
   def testPutGet(self):
     """Tests putting and getting various tokens."""
     # No cache file present.
-    self.assertEquals(None, self.cache.GetToken(self.key))
+    self.assertEqual(None, self.cache.GetToken(self.key))
 
     # Put a token
     self.cache.PutToken(self.key, self.token_1)
     cached_token = self.cache.GetToken(self.key)
-    self.assertEquals(self.token_1, cached_token)
+    self.assertEqual(self.token_1, cached_token)
 
     # Put a different token
     self.cache.PutToken(self.key, self.token_2)
     cached_token = self.cache.GetToken(self.key)
-    self.assertEquals(self.token_2, cached_token)
+    self.assertEqual(self.token_2, cached_token)
 
   def testGetBadFile(self):
     f = open(self.cache.CacheFileName(self.key), 'w')
     f.write('blah')
     f.close()
-    self.assertEquals(None, self.cache.GetToken(self.key))
+    self.assertEqual(None, self.cache.GetToken(self.key))
 
   def testCacheFileName(self):
     """Tests configuring the cache with a specific file name."""
@@ -280,12 +284,12 @@ class FileSystemTokenCacheTest(unittest.TestCase):
       uid = '_'
     else:
       uid = os.getuid()
-    self.assertEquals('/var/run/ccache/token.%s.abc123' % uid,
+    self.assertEqual('/var/run/ccache/token.%s.abc123' % uid,
                       cache.CacheFileName('abc123'))
 
     cache = oauth2_client.FileSystemTokenCache(
         path_pattern='/var/run/ccache/token.%(key)s')
-    self.assertEquals('/var/run/ccache/token.abc123',
+    self.assertEqual('/var/run/ccache/token.abc123',
                       cache.CacheFileName('abc123'))
 
 
@@ -300,10 +304,10 @@ class RefreshTokenTest(unittest.TestCase):
 
   def testUniqeId(self):
     cred_id = self.client.CacheKey()
-    self.assertEquals('0720afed6871f12761fbea3271f451e6ba184bf5', cred_id)
+    self.assertEqual('0720afed6871f12761fbea3271f451e6ba184bf5', cred_id)
 
   def testGetAuthorizationHeader(self):
-    self.assertEquals('Bearer %s' % ACCESS_TOKEN,
+    self.assertEqual('Bearer %s' % ACCESS_TOKEN,
                       self.client.GetAuthorizationHeader())
 
 
@@ -331,17 +335,32 @@ class OAuth2GCEClientTest(unittest.TestCase):
   def testFetchAccessToken(self):
     token = 'my_token'
 
-    self.mock_http.request(
-        oauth2_client.META_TOKEN_URI,
-        method='GET',
-        body=None,
-        headers=oauth2_client.META_HEADERS).AndReturn((
-            FakeResponse(200),
-            '{"access_token":"%(TOKEN)s",'
-            '"expires_in": %(EXPIRES_IN)d}' % {
-                'TOKEN': token,
-                'EXPIRES_IN': 42
-            }))
+    if six.PY2:      
+      # http.request should return str if python2, bytes if python3
+      self.mock_http.request(
+          oauth2_client.META_TOKEN_URI,
+          method='GET',
+          body=None,
+          headers=oauth2_client.META_HEADERS).AndReturn((
+              FakeResponse(200),
+              '{"access_token":"%(TOKEN)s",'
+              '"expires_in": %(EXPIRES_IN)d}' % {
+                  'TOKEN': token,
+                  'EXPIRES_IN': 42
+              }))
+    else:
+      # Python >2 should return bytes
+      self.mock_http.request(
+          oauth2_client.META_TOKEN_URI,
+          method='GET',
+          body=None,
+          headers=oauth2_client.META_HEADERS).AndReturn((
+              FakeResponse(200),
+              ('{"access_token":"%(TOKEN)s",'
+              '"expires_in": %(EXPIRES_IN)d}' % {
+                  'TOKEN': token,
+                  'EXPIRES_IN': 42
+              }).encode('utf-8')))
 
     self.mox.ReplayAll()
 

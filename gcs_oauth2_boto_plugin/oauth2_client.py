@@ -28,9 +28,12 @@ notice.
 # tokens (in the python API client oauth2client, there is a single class that
 # encapsulates both refresh and access tokens).
 
-from __future__ import absolute_import
 
-import cgi
+try:
+  from urllib.parse import parse_qs
+except ImportError:
+  from cgi import parse_qs
+
 import datetime
 import errno
 from hashlib import sha1
@@ -40,7 +43,11 @@ import os
 import socket
 import tempfile
 import threading
-import urllib
+
+try:
+  from urllib.parse import urlencode
+except ImportError:
+  from urllib import urlencode
 
 if os.environ.get('USER_AGENT'):
   import boto
@@ -58,7 +65,20 @@ from retry_decorator.retry_decorator import retry as Retry
 import socks
 
 if HAS_CRYPTO:
-  from oauth2client.client import SignedJwtAssertionCredentials
+  try:
+    from oauth2client.client import SignedJwtAssertionCredentials
+    USE_NEW_OAUTH=False
+    ServiceAccountCredentials = service_account._ServiceAccountCredentials
+  except ImportError:
+    from oauth2client.service_account import ServiceAccountCredentials
+    USE_NEW_OAUTH=True
+else:
+  try:
+    from oauth2client.service_account import ServiceAccountCredentials
+    USE_NEW_OAUTH=True
+  except ImportError:
+    ServiceAccountCredentials = service_account._ServiceAccountCredentials
+    USE_NEW_OAUTH=False
 
 LOG = logging.getLogger('oauth2_client')
 
@@ -223,13 +243,13 @@ class FileSystemTokenCache(TokenCache):
       flags |= os.O_BINARY
 
     try:
-      fd = os.open(cache_file, flags, 0600)
+      fd = os.open(cache_file, flags, 0o600)
     except (OSError, IOError) as e:
       LOG.warning('FileSystemTokenCache.PutToken: '
                   'Failed to create cache file %s: %s', cache_file, e)
       return
     f = os.fdopen(fd, 'w+b')
-    f.write(value.Serialize())
+    f.write(value.Serialize().encode('utf-8'))
     f.close()
 
   def GetToken(self, key):
@@ -332,7 +352,7 @@ class OAuth2Client(object):
       A hash key.
     """
     h = sha1()
-    h.update(self.cache_key_base)
+    h.update(self.cache_key_base.encode('utf-8'))
     return h.hexdigest()
 
   def GetAuthorizationHeader(self):
@@ -390,6 +410,13 @@ class _BaseOAuth2ServiceAccountClient(OAuth2Client):
     return AccessToken(credentials.access_token, credentials.token_expiry,
                        datetime_strategy=self.datetime_strategy)
 
+  def FetchAccessToken(self):
+    credentials = self.GetCredentials()
+    http = self.CreateHttpRequest()
+    credentials.refresh(http)
+    return AccessToken(credentials.access_token, credentials.token_expiry,
+                       datetime_strategy=self.datetime_strategy)
+
 
 class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
   """An OAuth2 service account client using .p12 or .pem keys."""
@@ -424,9 +451,14 @@ class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
 
   def GetCredentials(self):
     if HAS_CRYPTO:
-      return SignedJwtAssertionCredentials(
-          self._client_id, self._private_key, scope=DEFAULT_SCOPE,
-          private_key_password=self._password)
+      if USE_NEW_OAUTH:
+        return ServiceAccountCredentials._from_p12_keyfile_contents(
+            self._client_id, self._private_key, private_key_password=self._password,
+            scopes=DEFAULT_SCOPE)
+      else:
+        return SignedJwtAssertionCredentials(
+            self._client_id, self._private_key, scope=DEFAULT_SCOPE,
+            private_key_password=self._password)
     else:
       raise MissingDependencyError(
           'Service account authentication requires PyOpenSSL. Please install '
@@ -438,7 +470,7 @@ class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
 # be refactored into oauth2client directly in a way that allows for setting of
 # user agent and scopes. https://github.com/google/oauth2client/issues/164
 # pylint: disable=protected-access
-class ServiceAccountCredentials(service_account._ServiceAccountCredentials):
+class ServiceAccountCredentials(ServiceAccountCredentials):
 
   def to_json(self):
     self.service_account_name = self._service_account_email
@@ -449,7 +481,7 @@ class ServiceAccountCredentials(service_account._ServiceAccountCredentials):
   @classmethod
   def from_json(cls, s):
     try:
-      data = json.loads(s)
+      data = json.loads(s.decode('utf-8'))
       retval = ServiceAccountCredentials(
           service_account_id=data['_service_account_id'],
           service_account_email=data['_service_account_email'],
@@ -464,7 +496,7 @@ class ServiceAccountCredentials(service_account._ServiceAccountCredentials):
         retval.token_expiry = datetime.datetime.strptime(
             data['token_expiry'], EXPIRY_FORMAT)
       return retval
-    except KeyError, e:
+    except KeyError as e:
       raise Exception('Your JSON credentials are invalid; '
                       'missing required entry %s.' % e[0])
 # pylint: enable=protected-access
@@ -502,15 +534,26 @@ class OAuth2JsonServiceAccountClient(_BaseOAuth2ServiceAccountClient):
     self._service_account_email = service_account_email
     self._private_key_id = private_key_id
     self._private_key_pkcs8_text = private_key_pkcs8_text
+    self.client_id = client_id
 
   def GetCredentials(self):
-    return ServiceAccountCredentials(
-        service_account_id=self._client_id,
-        service_account_email=self._service_account_email,
-        private_key_id=self._private_key_id,
-        private_key_pkcs8_text=self._private_key_pkcs8_text,
-        scopes=[DEFAULT_SCOPE])
-        # TODO: Need to plumb user agent through here.
+    if USE_NEW_OAUTH:
+      keyfile_dict = {
+            'type': 'service_account',
+            'client_email': self._service_account_email,
+            'private_key_id': self._private_key_id,
+            'private_key': self._private_key_pkcs8_text,
+            'client_id': self.client_id,
+        }
+      return ServiceAccountCredentials.from_json_keyfile_dict(keyfile_dict, scopes=[DEFAULT_SCOPE])
+    else:
+      return ServiceAccountCredentials(
+          service_account_id=self._client_id,
+          service_account_email=self._service_account_email,
+          private_key_id=self._private_key_id,
+          private_key_pkcs8_text=self._private_key_pkcs8_text,
+          scopes=[DEFAULT_SCOPE])
+          # TODO: Need to plumb user agent through here.
 
 
 class GsAccessTokenRefreshError(Exception):
@@ -599,7 +642,7 @@ class OAuth2UserAccountClient(OAuth2Client):
       credentials.refresh(http)
       return AccessToken(credentials.access_token,
           credentials.token_expiry, datetime_strategy=self.datetime_strategy)
-    except AccessTokenRefreshError, e:
+    except AccessTokenRefreshError as e:
       if 'Invalid response 403' in e.message:
         # This is the most we can do at the moment to accurately detect rate
         # limiting errors since they come back as 403s with no further
@@ -639,7 +682,7 @@ class OAuth2GCEClient(OAuth2Client):
       raise GsAccessTokenRefreshError()
 
     if response.status == 200:
-      d = json.loads(content)
+      d = json.loads(content.decode('utf-8'))
 
       return AccessToken(
           d['access_token'],
@@ -661,7 +704,7 @@ def _IsGCE():
     # this approach, we'll avoid having to enumerate all possible non-transient
     # socket errors.
     return False
-  except Exception, e:
+  except Exception as e:
     LOG.warning("Failed to determine whether we're running on GCE, so we'll"
                 "assume that we aren't: %s", e)
     return False
@@ -687,7 +730,7 @@ class AccessToken(object):
 
     def GetValue(d, key):
       return (d.get(key, [None]))[0]
-    kv = cgi.parse_qs(query)
+    kv = parse_qs(query)
     if not kv['token']:
       return None
     expiry = None
@@ -709,7 +752,7 @@ class AccessToken(object):
       t = self.expiry
       tupl = (t.year, t.month, t.day, t.hour, t.minute, t.second, t.microsecond)
       kv['expiry'] = ','.join([str(i) for i in tupl])
-    return urllib.urlencode(kv)
+    return urlencode(kv)
 
   def ShouldRefresh(self, time_delta=300):
     """Whether the access token needs to be refreshed.

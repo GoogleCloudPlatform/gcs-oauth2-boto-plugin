@@ -19,7 +19,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from __future__ import absolute_import
+
 
 # Import this module so that users can simply import the top-level module. Once
 # imported, boto will pick up our subclasses of AuthHandler.

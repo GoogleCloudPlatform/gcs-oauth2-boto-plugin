@@ -14,7 +14,7 @@
 
 """Helper routines to facilitate use of oauth2_client."""
 
-from __future__ import absolute_import
+
 
 import json
 import os
@@ -80,7 +80,7 @@ def OAuth2ClientFromBotoConfig(
 
     json_key = None
     try:
-      json_key = json.loads(private_key)
+      json_key = json.loads(private_key.decode('utf-8'))
     except ValueError:
       pass
     if json_key:
@@ -180,7 +180,12 @@ def OAuth2ApprovalFlow(client, scopes, launch_browser=False):
   # Short delay; webbrowser.open on linux insists on printing out a message
   # which we don't want to run into the prompt for the auth code.
   time.sleep(2)
-  code = raw_input('Enter the authorization code: ')
+
+  try:
+    code = raw_input('Enter the authorization code: ')
+  except NameError:
+    code = input('Enter the authorization code: ')
+
   credentials = flow.step2_exchange(code, http=client.CreateHttpRequest())
   return credentials.refresh_token
 
