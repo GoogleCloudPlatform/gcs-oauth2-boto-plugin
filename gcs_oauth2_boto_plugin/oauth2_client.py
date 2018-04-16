@@ -52,6 +52,7 @@ import boto
 import httplib2
 import oauth2client.client
 import oauth2client.service_account
+from google_reauth import reauth_creds
 import retry_decorator.retry_decorator
 import socks
 
@@ -545,7 +546,7 @@ class OAuth2UserAccountClient(OAuth2Client):
   def GetCredentials(self):
     """Fetches a credentials objects from the provider's token endpoint."""
     access_token = self.GetAccessToken()
-    credentials = oauth2client.client.OAuth2Credentials(
+    credentials = reauth_creds.Oauth2WithReauthCredentials(
         access_token.token, self.client_id, self.client_secret,
         self.refresh_token, access_token.expiry, self.token_uri, None)
     return credentials
@@ -564,7 +565,7 @@ class OAuth2UserAccountClient(OAuth2Client):
     """
     try:
       http = self.CreateHttpRequest()
-      credentials = oauth2client.client.OAuth2Credentials(
+      credentials = reauth_creds.Oauth2WithReauthCredentials(
           None, self.client_id, self.client_secret, self.refresh_token, None,
           self.token_uri, None)
       credentials.refresh(http)

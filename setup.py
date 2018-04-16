@@ -30,6 +30,7 @@ for the machine in a thread- and process-safe fashion.
 
 requires = [
     'boto>=2.29.1',
+    'google-reauth>=0.1.0',
     'httplib2>=0.8',
     'oauth2client>=2.2.0',
     'pyOpenSSL>=0.13',
