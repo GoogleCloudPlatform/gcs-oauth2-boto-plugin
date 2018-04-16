@@ -16,7 +16,6 @@
 
 """Setup installation module for gcs-oauth2-boto-plugin."""
 
-import os
 from setuptools import find_packages
 from setuptools import setup
 
@@ -32,11 +31,7 @@ for the machine in a thread- and process-safe fashion.
 requires = [
     'boto>=2.29.1',
     'httplib2>=0.8',
-    'oauth2client>=1.5.2',
-    'oauth2client!=2.0.0',
-    'oauth2client!=2.0.1',
-    'oauth2client!=2.0.2',
-    'oauth2client!=2.1.0',
+    'oauth2client>=2.2.0',
     'pyOpenSSL>=0.13',
     # Not using 1.02 because of:
     #   https://code.google.com/p/socksipy-branch/issues/detail?id=3
