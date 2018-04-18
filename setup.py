@@ -41,6 +41,13 @@ requires = [
     'six>=1.6.1'
 ]
 
+extras_require = {
+    'dev': [
+        'freezegun',
+        'mox',
+    ],
+}
+
 setup(
     name='gcs-oauth2-boto-plugin',
     version='1.14',
@@ -58,4 +65,5 @@ setup(
     packages=find_packages(exclude=['third_party']),
     include_package_data=True,
     install_requires=requires,
+    extras_require=extras_require,
 )
