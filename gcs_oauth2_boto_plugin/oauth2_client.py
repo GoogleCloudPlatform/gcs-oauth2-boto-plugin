@@ -40,7 +40,6 @@ import os
 import socket
 import tempfile
 import threading
-import urllib
 
 # pylint: disable=g-import-not-at-top
 if os.environ.get('USER_AGENT'):
@@ -56,7 +55,9 @@ from google_reauth import reauth_creds
 import retry_decorator.retry_decorator
 import socks
 
+import six
 from six import BytesIO
+from six.moves import urllib
 
 LOG = logging.getLogger('oauth2_client')
 
@@ -226,13 +227,16 @@ class FileSystemTokenCache(TokenCache):
       flags |= os.O_BINARY
 
     try:
-      fd = os.open(cache_file, flags, 0600)
+      fd = os.open(cache_file, flags, 0o600)
     except (OSError, IOError) as e:
       LOG.warning('FileSystemTokenCache.PutToken: '
                   'Failed to create cache file %s: %s', cache_file, e)
       return
     f = os.fdopen(fd, 'w+b')
-    f.write(value.Serialize())
+    serialized = value.Serialize()
+    if isinstance(serialized, six.text_type):
+      serialized = serialized.encode('utf-8')
+    f.write(serialized)
     f.close()
 
   def GetToken(self, key):
@@ -335,7 +339,12 @@ class OAuth2Client(object):
       A hash key.
     """
     h = sha1()
-    h.update(self.cache_key_base)
+    # Unicode objects (i.e. strings in Python 3) must be encoded before hashing
+    if isinstance(self.cache_key_base, six.text_type):
+      val = self.cache_key_base.encode('utf-8')
+    else:
+      val = self.cache_key_base
+    h.update(val)
     return h.hexdigest()
 
   def GetAuthorizationHeader(self):
@@ -681,7 +690,7 @@ class AccessToken(object):
       t = self.expiry
       tupl = (t.year, t.month, t.day, t.hour, t.minute, t.second, t.microsecond)
       kv['expiry'] = ','.join([str(i) for i in tupl])
-    return urllib.urlencode(kv)
+    return urllib.parse.urlencode(kv)
 
   def ShouldRefresh(self, time_delta=300):
     """Whether the access token needs to be refreshed.

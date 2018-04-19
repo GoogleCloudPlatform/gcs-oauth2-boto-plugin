@@ -44,7 +44,7 @@ requires = [
 extras_require = {
     'dev': [
         'freezegun',
-        'mox',
+        'mock',
     ],
 }
 
@@ -66,4 +66,19 @@ setup(
     include_package_data=True,
     install_requires=requires,
     extras_require=extras_require,
+    tests_require=extras_require['dev'],
+    test_suite='gcs_oauth2_boto_plugin.test_oauth2_client',
+    classifiers=[
+        'Development Status :: 7 - Inactive',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Topic :: Internet :: WWW/HTTP',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ],
 )

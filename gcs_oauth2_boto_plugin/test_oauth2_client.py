@@ -26,7 +26,7 @@ import unittest
 from freezegun import freeze_time
 from gcs_oauth2_boto_plugin import oauth2_client
 import httplib2
-import mox
+import mock
 
 LOG = logging.getLogger('test_oauth2_client')
 
@@ -248,7 +248,7 @@ class FileSystemTokenCacheTest(unittest.TestCase):
     # Assert that the cache file exists and has correct permissions.
     if not IS_WINDOWS:
       self.assertEqual(
-          0600,
+          0o600,
           stat.S_IMODE(os.stat(self.cache.CacheFileName(self.key)).st_mode))
 
   def testPutGet(self):
@@ -321,65 +321,53 @@ class OAuth2GCEClientTest(unittest.TestCase):
   """Unit tests for OAuth2GCEClient."""
 
   def setUp(self):
-    self.mox = mox.Mox()
-    self.mox.StubOutClassWithMocks(httplib2, 'Http')
-    self.mock_http = httplib2.Http()
-
-  def tearDown(self):
-    self.mox.UnsetStubs()
+    patcher = mock.patch(
+        'gcs_oauth2_boto_plugin.oauth2_client.httplib2.Http', autospec=True)
+    self.addCleanup(patcher.stop)
+    self.mocked_http_class = patcher.start()
+    self.mock_http = self.mocked_http_class.return_value
 
   @freeze_time('2014-03-26 01:01:01')
   def testFetchAccessToken(self):
     token = 'my_token'
-
-    self.mock_http.request(
-        oauth2_client.META_TOKEN_URI,
-        method='GET',
-        body=None,
-        headers=oauth2_client.META_HEADERS).AndReturn((
-            FakeResponse(200),
-            '{"access_token":"%(TOKEN)s",'
-            '"expires_in": %(EXPIRES_IN)d}' % {
-                'TOKEN': token,
-                'EXPIRES_IN': 42
-            }))
-
-    self.mox.ReplayAll()
+    self.mock_http.request.return_value = (
+        FakeResponse(200),
+        '{"access_token":"%(TOKEN)s", "expires_in": %(EXPIRES_IN)d}' % {
+            'TOKEN': token,
+            'EXPIRES_IN': 42
+        })
 
     client = oauth2_client.OAuth2GCEClient()
 
     self.assertEqual(
         str(client.FetchAccessToken()),
         'AccessToken(token=%s, expiry=2014-03-26 01:01:43Z)' % token)
-
-    self.mox.VerifyAll()
+    self.mock_http.request.assert_called_with(
+        oauth2_client.META_TOKEN_URI,
+        method='GET',
+        body=None,
+        headers=oauth2_client.META_HEADERS)
 
   def testIsGCENotFound(self):
-    self.mock_http.request(oauth2_client.METADATA_SERVER).AndReturn((
-        FakeResponse(404), ''))
+    self.mock_http.request.return_value = (FakeResponse(404), '')
 
-    self.mox.ReplayAll()
     self.assertFalse(oauth2_client._IsGCE())
-
-    self.mox.VerifyAll()
+    self.mock_http.request.assert_called_once_with(
+        oauth2_client.METADATA_SERVER)
 
   def testIsGCEServerNotFound(self):
-    self.mock_http.request(oauth2_client.METADATA_SERVER).AndRaise(
-        httplib2.ServerNotFoundError)
+    self.mock_http.request.side_effect = httplib2.ServerNotFoundError()
 
-    self.mox.ReplayAll()
     self.assertFalse(oauth2_client._IsGCE())
-
-    self.mox.VerifyAll()
+    self.mock_http.request.assert_called_once_with(
+        oauth2_client.METADATA_SERVER)
 
   def testIsGCETrue(self):
-    self.mock_http.request(oauth2_client.METADATA_SERVER).AndReturn((
-        FakeResponse(200), ''))
+    self.mock_http.request.return_value = (FakeResponse(200), '')
 
-    self.mox.ReplayAll()
     self.assertTrue(oauth2_client._IsGCE())
-
-    self.mox.VerifyAll()
+    self.mock_http.request.assert_called_once_with(
+        oauth2_client.METADATA_SERVER)
 
 
 if __name__ == '__main__':
