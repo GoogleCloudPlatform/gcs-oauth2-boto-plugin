@@ -31,6 +31,7 @@ import mock
 LOG = logging.getLogger('test_oauth2_client')
 
 ACCESS_TOKEN = 'abc123'
+RAPT_TOKEN = 'rapt123'
 TOKEN_URI = 'https://provider.example.com/oauth/provider?mode=token'
 AUTH_URI = 'https://provider.example.com/oauth/provider?mode=authorize'
 DEFAULT_CA_CERTS_FILE = os.path.abspath(
@@ -62,12 +63,13 @@ class MockOAuth2ServiceAccountClient(oauth2_client.OAuth2ServiceAccountClient):
   def Reset(self):
     self.fetched_token = False
 
-  def FetchAccessToken(self):
+  def FetchAccessToken(self, rapt_token=None):
     self.fetched_token = True
     return oauth2_client.AccessToken(
         ACCESS_TOKEN,
         GetExpiry(self.datetime_strategy, 3600),
-        datetime_strategy=self.datetime_strategy)
+        datetime_strategy=self.datetime_strategy,
+        rapt_token=None)
 
 
 class MockOAuth2UserAccountClient(oauth2_client.OAuth2UserAccountClient):
@@ -84,12 +86,13 @@ class MockOAuth2UserAccountClient(oauth2_client.OAuth2UserAccountClient):
   def Reset(self):
     self.fetched_token = False
 
-  def FetchAccessToken(self):
+  def FetchAccessToken(self, rapt_token=None):
     self.fetched_token = True
     return oauth2_client.AccessToken(
         ACCESS_TOKEN,
         GetExpiry(self.datetime_strategy, 3600),
-        datetime_strategy=self.datetime_strategy)
+        datetime_strategy=self.datetime_strategy,
+        rapt_token=RAPT_TOKEN if rapt_token is None else rapt_token)
 
 
 def GetExpiry(datetime_strategy, length_in_seconds):
@@ -120,13 +123,13 @@ class OAuth2AccountClientTest(unittest.TestCase):
 
   def testGetAccessTokenUserAccount(self):
     self.client = CreateMockUserAccountClient(self.mock_datetime)
-    self._RunGetAccessTokenTest()
+    self._RunGetAccessTokenTest(expected_rapt=RAPT_TOKEN)
 
   def testGetAccessTokenServiceAccount(self):
     self.client = CreateMockServiceAccountClient(self.mock_datetime)
     self._RunGetAccessTokenTest()
 
-  def _RunGetAccessTokenTest(self):
+  def _RunGetAccessTokenTest(self, expected_rapt=None):
     """Tests access token gets with self.client."""
     access_token_1 = 'abc123'
 
@@ -139,6 +142,7 @@ class OAuth2AccountClientTest(unittest.TestCase):
     self.assertEqual(access_token_1, token_1.token)
     self.assertEqual(self.start_time + datetime.timedelta(minutes=60),
                      token_1.expiry)
+    self.assertEqual(token_1.rapt_token, expected_rapt)
 
     # Advance time by less than expiry time, and fetch another token.
     self.client.Reset()
@@ -164,6 +168,7 @@ class OAuth2AccountClientTest(unittest.TestCase):
     self.assertEqual(
         self.mock_datetime.mock_now + datetime.timedelta(minutes=60),
         token_3.expiry)
+    self.assertEqual(token_3.rapt_token, expected_rapt)
 
 
 class AccessTokenTest(unittest.TestCase):
@@ -218,7 +223,7 @@ class AccessTokenTest(unittest.TestCase):
   def testSerialization(self):
     """Tests token serialization."""
     expiry = datetime.datetime(2011, 3, 1, 11, 25, 13, 300826)
-    token = oauth2_client.AccessToken('foo', expiry)
+    token = oauth2_client.AccessToken('foo', expiry, rapt_token=RAPT_TOKEN)
     serialized_token = token.Serialize()
     LOG.debug('testSerialization: serialized_token=%s', serialized_token)
 
@@ -232,9 +237,11 @@ class FileSystemTokenCacheTest(unittest.TestCase):
   def setUp(self):
     self.cache = oauth2_client.FileSystemTokenCache()
     self.start_time = datetime.datetime(2011, 3, 1, 10, 25, 13, 300826)
-    self.token_1 = oauth2_client.AccessToken('token1', self.start_time)
+    self.token_1 = oauth2_client.AccessToken(
+        'token1', self.start_time, rapt_token=RAPT_TOKEN)
     self.token_2 = oauth2_client.AccessToken(
-        'token2', self.start_time + datetime.timedelta(seconds=492))
+        'token2', self.start_time + datetime.timedelta(seconds=492),
+        rapt_token=RAPT_TOKEN)
     self.key = 'token1key'
 
   def tearDown(self):
