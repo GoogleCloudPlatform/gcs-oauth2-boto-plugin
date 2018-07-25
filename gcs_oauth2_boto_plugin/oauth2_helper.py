@@ -82,7 +82,7 @@ def OAuth2ClientFromBotoConfig(
 
     json_key_dict = None
     try:
-      json_key_dict = json.loads(private_key)
+      json_key_dict = json.loads(private_key.decode('utf-8'))
     except ValueError:
       pass
     if json_key_dict:
