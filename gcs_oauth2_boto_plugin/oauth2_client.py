@@ -735,7 +735,7 @@ class AccessToken(object):
     def GetValue(d, key):
       return (d.get(key, [None]))[0]
     kv = urllib.parse.parse_qs(query)
-    if not kv['token']:
+    if 'token' not in kv or not kv['token']:
       return None
     expiry = None
     expiry_tuple = GetValue(kv, 'expiry')
