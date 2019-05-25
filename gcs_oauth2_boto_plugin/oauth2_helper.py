@@ -16,6 +16,7 @@
 
 from __future__ import absolute_import
 
+import binascii
 import io
 import json
 import os
@@ -38,6 +39,61 @@ GOOGLE_OAUTH2_PROVIDER_TOKEN_URI = (
 GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD = 'notasecret'
 
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
+
+
+def _MaybeTextFile(filename):
+  """Check if text file based on file(1)
+  Implementation stolen shamelessly from:
+  https://stackoverflow.com/a/7392391/2873090
+  Args:
+    filename: String describing a path to a file
+  Returns:
+    Boolean: True if the first 1024 bytes seem to indicate a text file
+  """
+  textchars = bytearray({7, 8, 9, 10, 12, 13, 27} |
+                        set(range(0x20, 0x100)) - {0x7f})
+  return lambda bytes: bool(bytes.translate(None, textchars))
+
+
+def _MaybeP12File(filename):
+  """Check if file has expected ending .p12 or .pfx and isn't text file
+  Args:
+    filename: String describing a path to a file
+  Returns:
+    Boolean: True if file has expected ending and isn't text file
+  """
+  return not _MaybeTextFile(filename) and any(
+      filename.lower().endswith('.p12'),
+      filename.lower().endswith('.pfx'),
+  )
+
+
+def _ProbablyP12File(filename):
+  """Checks first hextet of file to see if it matches .p12 file header
+  Anecdotally, .p12 files appear to always start with hextet 0x3082. Check
+  the first hextet to see if it matches this pattern.
+  This isn't explicitly verified in the PKCS 12 spec, but testing several valid
+  PKCS 12 files, this appears to be the case.
+  TODO: Consult with SMEs to verify this assumption is correct. If so, remove
+        the _MaybeP12File() function and rename this function.
+  Args:
+    filename: String describing a path to a file
+  Returns:
+    Boolean: True if file starts with 0x3082
+  """
+  p12_header = b'3082'
+  with open(filename, 'rb') as f:
+    hextet = binascii.hexlify(bytearray(f.read(2)))
+  return p12_header == hextet
+
+
+def _GetPrivateKey(filename):
+  if _MaybeP12File(filename) or _ProbablyP12File(filename):
+    with open(filename, 'rb') as private_key_file:
+      return (True, private_key_file.read())
+  else:
+    with io.open(filename, 'r', encoding=UTF8) as private_key_file:
+      return (False, private_key_file.read())
 
 
 def OAuth2ClientFromBotoConfig(
@@ -78,29 +134,28 @@ def OAuth2ClientFromBotoConfig(
   if cred_type == oauth2_client.CredTypes.OAUTH2_SERVICE_ACCOUNT:
     service_client_id = config.get('Credentials', 'gs_service_client_id', '')
     private_key_filename = config.get('Credentials', 'gs_service_key_file', '')
-    with io.open(private_key_filename, 'r', encoding='utf-8') as private_key_file:
-      private_key = private_key_file.read()
+    pkcs12_key, private_key = _GetPrivateKey(private_key_filename)
 
-    json_key_dict = None
-    try:
-      json_key_dict = json.loads(private_key)
-    except ValueError:
-      pass
-    if json_key_dict:
-      for json_entry in ('client_id', 'client_email', 'private_key_id',
-                         'private_key'):
-        if json_entry not in json_key_dict:
-          raise Exception('The JSON private key file at %s '
-                          'did not contain the required entry: %s' %
-                          (private_key_filename, json_entry))
-
-      return oauth2_client.OAuth2JsonServiceAccountClient(
-          json_key_dict, access_token_cache=token_cache,
-          auth_uri=provider_authorization_uri, token_uri=provider_token_uri,
-          disable_ssl_certificate_validation=not(config.getbool(
-              'Boto', 'https_validate_certificates', True)),
-          proxy_host=proxy_host, proxy_port=proxy_port,
-          proxy_user=proxy_user, proxy_pass=proxy_pass)
+    if not pkcs12_key:
+      json_key_dict = None
+      try:
+        json_key_dict = json.loads(private_key)
+      except ValueError:
+        pass
+      if json_key_dict:
+        for json_entry in ('client_id', 'client_email', 'private_key_id',
+                           'private_key'):
+          if json_entry not in json_key_dict:
+            raise Exception('The JSON private key file at %s '
+                            'did not contain the required entry: %s' %
+                            (private_key_filename, json_entry))
+        return oauth2_client.OAuth2JsonServiceAccountClient(
+            json_key_dict, access_token_cache=token_cache,
+            auth_uri=provider_authorization_uri, token_uri=provider_token_uri,
+            disable_ssl_certificate_validation=not(config.getbool(
+                'Boto', 'https_validate_certificates', True)),
+            proxy_host=proxy_host, proxy_port=proxy_port,
+            proxy_user=proxy_user, proxy_pass=proxy_pass)
     else:
       key_file_pass = config.get('Credentials', 'gs_service_key_file_password',
                                  GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD)
