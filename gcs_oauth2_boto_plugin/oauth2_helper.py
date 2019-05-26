@@ -95,7 +95,8 @@ def OAuth2ClientFromBotoConfig(
       try:
         json_key_dict = json.loads(private_key)
       except ValueError:
-        pass
+        raise Exception('Could not parse JSON keyfile "%s" as valid JSON' %
+                        private_key_filename)
       if json_key_dict:
         for json_entry in ('client_id', 'client_email', 'private_key_id',
                            'private_key'):
