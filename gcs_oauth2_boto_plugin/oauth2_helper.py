@@ -55,47 +55,6 @@ def _MaybeTextFile(filename):
   return lambda bytes: bool(bytes.translate(None, textchars))
 
 
-def _MaybeP12File(filename):
-  """Check if file has expected ending .p12 or .pfx and isn't text file
-  Args:
-    filename: String describing a path to a file
-  Returns:
-    Boolean: True if file has expected ending and isn't text file
-  """
-  return not _MaybeTextFile(filename) and any(
-      filename.lower().endswith('.p12'),
-      filename.lower().endswith('.pfx'),
-  )
-
-
-def _ProbablyP12File(filename):
-  """Checks first hextet of file to see if it matches .p12 file header
-  Anecdotally, .p12 files appear to always start with hextet 0x3082. Check
-  the first hextet to see if it matches this pattern.
-  This isn't explicitly verified in the PKCS 12 spec, but testing several valid
-  PKCS 12 files, this appears to be the case.
-  TODO: Consult with SMEs to verify this assumption is correct. If so, remove
-        the _MaybeP12File() function and rename this function.
-  Args:
-    filename: String describing a path to a file
-  Returns:
-    Boolean: True if file starts with 0x3082
-  """
-  p12_header = b'3082'
-  with open(filename, 'rb') as f:
-    hextet = binascii.hexlify(bytearray(f.read(2)))
-  return p12_header == hextet
-
-
-def _GetPrivateKey(filename):
-  if _MaybeP12File(filename) or _ProbablyP12File(filename):
-    with open(filename, 'rb') as private_key_file:
-      return (True, private_key_file.read())
-  else:
-    with io.open(filename, 'r', encoding=UTF8) as private_key_file:
-      return (False, private_key_file.read())
-
-
 def OAuth2ClientFromBotoConfig(
     config, cred_type=oauth2_client.CredTypes.OAUTH2_USER_ACCOUNT):
   """Create a client type based on credentials supplied in boto config."""
@@ -134,9 +93,19 @@ def OAuth2ClientFromBotoConfig(
   if cred_type == oauth2_client.CredTypes.OAUTH2_SERVICE_ACCOUNT:
     service_client_id = config.get('Credentials', 'gs_service_client_id', '')
     private_key_filename = config.get('Credentials', 'gs_service_key_file', '')
-    pkcs12_key, private_key = _GetPrivateKey(private_key_filename)
+    private_key = _GetPrivateKey(private_key_filename)
+    with io.open(private_key_filename, 'rb') as private_key_file:
+      private_key = private_key_file.read()
 
-    if not pkcs12_key:
+    keyfile_is_utf8 = False
+    try:
+      private_key = private_key.decode(UTF8)
+      # P12 keys won't be encoded as UTF8 bytes.
+      keyfile_is_utf8 = True
+    except UnicodeDecodeError:
+      pass
+
+    if keyfile_is_utf8:
       json_key_dict = None
       try:
         json_key_dict = json.loads(private_key)
