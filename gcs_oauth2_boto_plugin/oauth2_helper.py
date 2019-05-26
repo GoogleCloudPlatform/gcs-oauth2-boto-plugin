@@ -28,6 +28,7 @@ import oauth2client.client
 
 from six.moves import input  # pylint: disable=redefined-builtin
 
+UTF8 = 'utf-8'
 CLIENT_ID = None
 CLIENT_SECRET = None
 
@@ -38,20 +39,6 @@ GOOGLE_OAUTH2_PROVIDER_TOKEN_URI = (
 GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD = 'notasecret'
 
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
-
-
-def _MaybeTextFile(filename):
-  """Check if text file based on file(1)
-  Implementation stolen shamelessly from:
-  https://stackoverflow.com/a/7392391/2873090
-  Args:
-    filename: String describing a path to a file
-  Returns:
-    Boolean: True if the first 1024 bytes seem to indicate a text file
-  """
-  textchars = bytearray({7, 8, 9, 10, 12, 13, 27} |
-                        set(range(0x20, 0x100)) - {0x7f})
-  return lambda bytes: bool(bytes.translate(None, textchars))
 
 
 def OAuth2ClientFromBotoConfig(
