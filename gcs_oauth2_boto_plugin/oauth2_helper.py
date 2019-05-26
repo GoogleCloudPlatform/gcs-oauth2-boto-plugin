@@ -16,7 +16,6 @@
 
 from __future__ import absolute_import
 
-import binascii
 import io
 import json
 import os
@@ -93,7 +92,6 @@ def OAuth2ClientFromBotoConfig(
   if cred_type == oauth2_client.CredTypes.OAUTH2_SERVICE_ACCOUNT:
     service_client_id = config.get('Credentials', 'gs_service_client_id', '')
     private_key_filename = config.get('Credentials', 'gs_service_key_file', '')
-    private_key = _GetPrivateKey(private_key_filename)
     with io.open(private_key_filename, 'rb') as private_key_file:
       private_key = private_key_file.read()
 
