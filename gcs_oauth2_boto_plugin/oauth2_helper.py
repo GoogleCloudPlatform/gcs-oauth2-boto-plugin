@@ -91,20 +91,26 @@ def OAuth2ClientFromBotoConfig(
       pass
 
     if keyfile_is_utf8:
-      json_key_dict = json.loads(private_key)
-      for json_entry in ('client_id', 'client_email', 'private_key_id',
-                         'private_key'):
-        if json_entry not in json_key_dict:
-          raise Exception('The JSON private key file at %s '
-                          'did not contain the required entry: %s' %
-                          (private_key_filename, json_entry))
-      return oauth2_client.OAuth2JsonServiceAccountClient(
-          json_key_dict, access_token_cache=token_cache,
-          auth_uri=provider_authorization_uri, token_uri=provider_token_uri,
-          disable_ssl_certificate_validation=not(config.getbool(
-              'Boto', 'https_validate_certificates', True)),
-          proxy_host=proxy_host, proxy_port=proxy_port,
-          proxy_user=proxy_user, proxy_pass=proxy_pass)
+      json_key_dict = None
+      try:
+        json_key_dict = json.loads(private_key)
+      except ValueError:
+        raise Exception('Could not parse JSON keyfile "%s" as valid JSON' %
+                        private_key_filename)
+      if json_key_dict:
+        for json_entry in ('client_id', 'client_email', 'private_key_id',
+                           'private_key'):
+          if json_entry not in json_key_dict:
+            raise Exception('The JSON private key file at %s '
+                            'did not contain the required entry: %s' %
+                            (private_key_filename, json_entry))
+        return oauth2_client.OAuth2JsonServiceAccountClient(
+            json_key_dict, access_token_cache=token_cache,
+            auth_uri=provider_authorization_uri, token_uri=provider_token_uri,
+            disable_ssl_certificate_validation=not(config.getbool(
+                'Boto', 'https_validate_certificates', True)),
+            proxy_host=proxy_host, proxy_port=proxy_port,
+            proxy_user=proxy_user, proxy_pass=proxy_pass)
     else:
       key_file_pass = config.get('Credentials', 'gs_service_key_file_password',
                                  GOOGLE_OAUTH2_DEFAULT_FILE_PASSWORD)
