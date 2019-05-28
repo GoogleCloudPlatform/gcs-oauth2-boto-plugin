@@ -28,6 +28,7 @@ import oauth2client.client
 
 from six.moves import input  # pylint: disable=redefined-builtin
 
+UTF8 = 'utf-8'
 CLIENT_ID = None
 CLIENT_SECRET = None
 
@@ -78,22 +79,29 @@ def OAuth2ClientFromBotoConfig(
   if cred_type == oauth2_client.CredTypes.OAUTH2_SERVICE_ACCOUNT:
     service_client_id = config.get('Credentials', 'gs_service_client_id', '')
     private_key_filename = config.get('Credentials', 'gs_service_key_file', '')
-    with io.open(private_key_filename, 'r', encoding='utf-8') as private_key_file:
+    with io.open(private_key_filename, 'rb') as private_key_file:
       private_key = private_key_file.read()
 
-    json_key_dict = None
+    keyfile_is_utf8 = False
     try:
-      json_key_dict = json.loads(private_key)
-    except ValueError:
+      private_key = private_key.decode(UTF8)
+      # P12 keys won't be encoded as UTF8 bytes.
+      keyfile_is_utf8 = True
+    except UnicodeDecodeError:
       pass
-    if json_key_dict:
+
+    if keyfile_is_utf8:
+      try:
+        json_key_dict = json.loads(private_key)
+      except ValueError:
+        raise Exception('Could not parse JSON keyfile "%s" as valid JSON' %
+                        private_key_filename)
       for json_entry in ('client_id', 'client_email', 'private_key_id',
                          'private_key'):
         if json_entry not in json_key_dict:
           raise Exception('The JSON private key file at %s '
                           'did not contain the required entry: %s' %
                           (private_key_filename, json_entry))
-
       return oauth2_client.OAuth2JsonServiceAccountClient(
           json_key_dict, access_token_cache=token_cache,
           auth_uri=provider_authorization_uri, token_uri=provider_token_uri,
