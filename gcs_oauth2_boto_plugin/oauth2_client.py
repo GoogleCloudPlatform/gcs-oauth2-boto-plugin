@@ -673,6 +673,7 @@ class OAuth2GCEClient(OAuth2Client):
       http = httplib2.Http()
       response, content = http.request(META_TOKEN_URI, method='GET',
                                        body=None, headers=META_HEADERS)
+      content = six.ensure_text(content)
     except Exception as e:
       raise GsAccessTokenRefreshError(e)
 
