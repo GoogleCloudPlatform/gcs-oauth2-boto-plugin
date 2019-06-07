@@ -453,7 +453,7 @@ class OAuth2ServiceAccountClient(_BaseOAuth2ServiceAccountClient):
       # pylint: disable=protected-access
       return _ServiceAccountCredentials.from_p12_keyfile_buffer(
           self._client_id,
-          BytesIO(self._private_key),
+          six.BytesIO(self._private_key),
           private_key_password=self._password,
           scopes=DEFAULT_SCOPE,
           token_uri=self.token_uri)
