@@ -243,7 +243,7 @@ class FileSystemTokenCache(TokenCache):
     serialized = value.Serialize()
     if isinstance(serialized, six.text_type):
       serialized = serialized.encode('utf-8')
-    f.write(serialized)
+    f.write(six.ensure_binary(serialized))
     f.close()
 
   def GetToken(self, key):
