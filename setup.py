@@ -38,7 +38,7 @@ requires = [
     #   https://code.google.com/p/socksipy-branch/issues/detail?id=3
     'SocksiPy-branch==1.01',
     'retry_decorator>=1.0.0',
-    'six>=1.6.1'
+    'six>=1.12.0'
 ]
 
 extras_require = {
