@@ -237,7 +237,9 @@ class FileSystemTokenCache(TokenCache):
       fd = os.open(cache_file, flags, 0o600)
     except (OSError, IOError) as e:
       LOG.warning('FileSystemTokenCache.PutToken: '
-                  'Failed to create cache file %s: %s', cache_file, e)
+                  'Failed to create cache file %s: %s',
+                  six.ensure_text(cache_file),
+                  six.ensure_text(e))
       return
     f = os.fdopen(fd, 'w+b')
     serialized = value.Serialize()
@@ -258,14 +260,17 @@ class FileSystemTokenCache(TokenCache):
     except (IOError, OSError) as e:
       if e.errno != errno.ENOENT:
         LOG.warning('FileSystemTokenCache.GetToken: '
-                    'Failed to read cache file %s: %s', cache_file, e)
+                    'Failed to read cache file %s: %s',
+                    six.ensure_text(cache_file),
+                    six.ensure_text(e))
     except Exception as e:  # pylint: disable=broad-except
       LOG.warning('FileSystemTokenCache.GetToken: '
                   'Failed to read cache file %s (possibly corrupted): %s',
-                  cache_file, e)
+                  six.ensure_text(cache_file),
+                  six.ensure_text(e))
 
     LOG.debug('FileSystemTokenCache.GetToken: key=%s%s present (cache_file=%s)',
-              key, ' not' if value is None else '', cache_file)
+              key, ' not' if value is None else '', six.ensure_text(cache_file))
     return value
 
 
@@ -704,7 +709,7 @@ def _IsGCE():
     return False
   except Exception as e:  # pylint: disable=broad-except
     LOG.warning("Failed to determine whether we're running on GCE, so we'll"
-                "assume that we aren't: %s", e)
+                "assume that we aren't: %s", six.ensure_text(e))
     return False
 
   return False
