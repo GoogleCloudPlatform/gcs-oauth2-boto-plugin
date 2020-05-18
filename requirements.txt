@@ -8,4 +8,4 @@ retry_decorator>=1.0.0
 six>=1.6.1
 # Extra requirements only needed for testing, 'dev' label in setup.py.
 freezegun
-mock
+mock;python_version<"3.3"
