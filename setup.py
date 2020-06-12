@@ -16,8 +16,6 @@
 
 """Setup installation module for gcs-oauth2-boto-plugin."""
 
-from sys import version_info as version
-
 from setuptools import find_packages
 from setuptools import setup
 
