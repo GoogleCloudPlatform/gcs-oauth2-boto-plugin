@@ -46,7 +46,7 @@ requires = [
 extras_require = {
     'dev': [
         'freezegun',
-        'mock',
+        'mock;python_version<"3.3"',
     ],
 }
 
