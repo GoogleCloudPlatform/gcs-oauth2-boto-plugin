@@ -33,12 +33,9 @@ requires = [
     'rsa<=4.0; python_version < "3.5"',
     'boto>=2.29.1',
     'google-reauth>=0.1.0',
-    'httplib2>=0.8',
+    'httplib2>=0.18',
     'oauth2client>=2.2.0',
     'pyOpenSSL>=0.13',
-    # Not using 1.02 because of:
-    #   https://code.google.com/p/socksipy-branch/issues/detail?id=3
-    'SocksiPy-branch==1.01',
     'retry_decorator>=1.0.0',
     'six>=1.12.0'
 ]
@@ -52,7 +49,7 @@ extras_require = {
 
 setup(
     name='gcs-oauth2-boto-plugin',
-    version='2.6',
+    version='2.7',
     url='https://developers.google.com/storage/docs/gspythonlibrary',
     download_url=('https://github.com/GoogleCloudPlatform'
                   '/gcs-oauth2-boto-plugin'),
