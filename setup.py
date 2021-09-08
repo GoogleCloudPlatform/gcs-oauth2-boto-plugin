@@ -29,8 +29,7 @@ for the machine in a thread- and process-safe fashion.
 """
 
 requires = [
-    # Other versions of rsa>4 do not support Python 2.
-    'rsa==4.3; python_version < "3.5"',
+    'rsa==4.7.2',
     'boto>=2.29.1',
     'google-reauth>=0.1.0',
     'httplib2>=0.18',
