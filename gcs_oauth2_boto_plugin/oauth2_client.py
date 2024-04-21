@@ -57,7 +57,6 @@ from google.auth.crypt import base as crypt_base
 from google_auth_httplib2 import Request as GoogleAuthRequest
 from google_auth_httplib2 import AuthorizedHttp
 from google.oauth2 import service_account
-from oauth2client.service_account import ServiceAccountCredentials
 
 import six
 from six import BytesIO
