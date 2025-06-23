@@ -37,7 +37,7 @@ requires = [
     'pyOpenSSL>=0.13',
     'retry_decorator>=1.0.0',
     'six>=1.12.0',
-    'google-auth==2.17.0',
+    'google-auth==2.39.0',
     'google-auth-httplib2>=0.2.0'
 ]
 
