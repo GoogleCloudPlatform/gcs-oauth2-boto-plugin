@@ -50,7 +50,7 @@ extras_require = {
 
 setup(
     name='gcs-oauth2-boto-plugin',
-    version='3.2',
+    version='3.3',
     url='https://developers.google.com/storage/docs/gspythonlibrary',
     download_url=('https://github.com/GoogleCloudPlatform'
                   '/gcs-oauth2-boto-plugin'),
